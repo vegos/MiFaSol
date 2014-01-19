@@ -1,3 +1,9 @@
+#include <Wire.h> 
+#include <LiquidCrystal_I2C.h>
+
+LiquidCrystal_I2C lcd(0x20,16,2);  // set the LCD address to 0x20 for a 16 chars and 2 line display
+
+
 #define  IO1     5
 #define  IO2     6
 #define  IO3     7
@@ -16,6 +22,7 @@ volatile int KeyDelay = 50;                  // 50ms for keypress
 
 void setup()
 {
+  lcd.init();
   pinMode(IO1,INPUT_PULLUP);
   pinMode(IO2,INPUT_PULLUP);
   pinMode(IO3,INPUT_PULLUP);
@@ -24,8 +31,23 @@ void setup()
   pinMode(IO6,INPUT_PULLUP);
   pinMode(IO7,INPUT_PULLUP);
   pinMode(IO8,INPUT_PULLUP);
-  pinMode(IO9,INPUT_PULLUP);
+  pinMode(IO9,INPUT_PULLUP);  
   Serial.begin(31250);
+  lcd.backlight();
+  lcd.clear();
+  //         0123456789012345
+  lcd.setCursor(0,0);
+  lcd.print("    MiFaSol     ");
+  lcd.setCursor(0,1);
+  lcd.print("MIDI Controller ");
+  delay(1000);
+  lcd.setCursor(0,1);
+  lcd.print(" (c)2014, Magla ");
+  delay(1500);
+  lcd.clear();
+  lcd.print("PGM:---  EXP:---");
+  lcd.setCursor(0,1);
+  lcd.print("");
 }
 
 void loop()
@@ -35,13 +57,17 @@ void loop()
   {
     long tmpmillis=millis();    
     SendProgram(Key);
+    LCDNumber(0,4,Key);
+    LCDText(1,"Done!");
     while ((millis()-tmpmillis<KeyDelay) && (Keypress()==Key));  // DELAY for key depress or time
+    LCDText(1,"     ");
   }
     
   if (PreviousExpPedal != ExpPedal())
   {
-    SendMidiCC(CC,CCSelect,ExpPedal());
-    PreviousExpPedal=ExpPedal();
+    PreviousExpPedal = ExpPedal();
+    LCDNumber(1,13,PreviousExpPedal);
+    SendMidiCC(CC,CCSelect,PreviousExpPedal);
   }
 }
 
@@ -96,4 +122,20 @@ void SendMidiCC(byte CC_data, byte midiCCselect, byte AnalogValue)
   Serial.write(CC_data);
   Serial.write(midiCCselect);
   Serial.write(AnalogValue);
+}
+
+void LCDNumber(byte line, byte pos, byte number)
+{
+  lcd.setCursor(pos,line);
+  if (number<100)
+    lcd.print("0");
+  if (number<10)
+    lcd.print("0");
+  lcd.print(number);
+}
+
+void LCDText(byte line, char* text)
+{
+  lcd.setCursor(0,line);
+  lcd.print(text);
 }
