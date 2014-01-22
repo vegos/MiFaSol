@@ -6,7 +6,7 @@
 //
 //         ©2014, Antonis Maglaras :: maglaras@gmail.com
 //                          MIDI Controller
-//                           Version 0.05a
+//                           Version 0.06a
 //
 //
 //
@@ -36,6 +36,7 @@ volatile byte PreviousExpPedal = 0;
 volatile int KeyDelay = 50;                  // 50ms for keypress
 volatile int Patch = 0;
 volatile int Volume = 0;
+volatile byte MChannel = 1;
 
 IRrecv irrecv(IO9);
 decode_results results;
@@ -51,9 +52,10 @@ void setup()
   pinMode(IO4,INPUT_PULLUP);
   pinMode(IO5,INPUT_PULLUP);
   pinMode(IO6,INPUT_PULLUP);
-//  pinMode(IO7,INPUT_PULLUP);
+  pinMode(IO7,INPUT_PULLUP);
   pinMode(IO8,INPUT_PULLUP);
-  pinMode(IO9,INPUT_PULLUP);  
+// WARNING: IO9 is the TSOP1838T IR Receiver
+//  pinMode(IO9,INPUT_PULLUP);  
 */  
   Serial.begin(31250);
 /*  lcd.backlight();
@@ -83,58 +85,58 @@ void loop()
         Patch+=1;
         if (Patch>127)
           Patch=127;
-        SendProgram((byte)Patch);
+        ChangeProgram(MChannel, Patch);
         delay(100);
         break;
       case 0x890:
         Patch-=1;
         if (Patch<0)
           Patch=0;
-        SendProgram((byte)Patch);
+        ChangeProgram(MChannel, Patch);
         delay(100);
         break;
-      case 0x10:
-        SendProgram(0);
+      case 0x10:      // Key 1 on remote
+        ChangeProgram(MChannel,0);
         break;
-      case 0x810:
-        SendProgram(1);
+      case 0x810:     // Key 2 on remote
+        ChangeProgram(MChannel,1);
         break;
       case 0x410:
-        SendProgram(2);
+        ChangeProgram(MChannel,2);
         break;
       case 0xc10:
-        SendProgram(3);
+        ChangeProgram(MChannel,3);
         break;
       case 0x210:
-        SendProgram(4);
+        ChangeProgram(MChannel,4);
         break;
       case 0xA10:
-        SendProgram(5);
+        ChangeProgram(MChannel,5);
         break;
       case 0x610:
-        SendProgram(6);
+        ChangeProgram(MChannel,6);
         break;
       case 0xe10:
-        SendProgram(7);
+        ChangeProgram(MChannel,7);
         break;
       case 0x110:
-        SendProgram(8);
+        ChangeProgram(MChannel,8);
         break;
-      case 0x910:
-        SendProgram(9);
+      case 0x910:     // Key 0 on remote
+        ChangeProgram(MChannel,9);
         break;
         
       case 0xc90:
         Volume-=1;
         if (Volume<0)
           Volume=0;
-        SendMidiCC(1,0,Volume);
+        SendMidiCC(MChannel,0,Volume);
         break;
       case 0x490:
         Volume+=1;
         if (Volume>127)
           Volume=127;
-        SendMidiCC(1,0,(byte)Volume);
+        SendMidiCC(MChannel,0,(byte)Volume);
         break;
     }
     irrecv.resume();
@@ -144,19 +146,19 @@ void loop()
   if (Key != 0)
   {
     long tmpmillis=millis();    
-    SendProgram(Key);
-//    LCDNumber(0,4,Key);
-//    LCDText(1,"Done!");
+    ChangeProgram(Key);
+    LCDNumber(0,4,Key);
+    LCDText(1,"Done!");
     while ((millis()-tmpmillis<KeyDelay) && (Keypress()==Key));  // DELAY for key depress or time
-//    LCDText(1,"     ");
+    LCDText(1,"     ");
   }
     
-//  if (PreviousExpPedal != ExpPedal())
-//  {
-//    PreviousExpPedal = ExpPedal();
-//    LCDNumber(1,13,PreviousExpPedal);
-//    SendMidiCC(CC,CCSelect,PreviousExpPedal);
-//  }
+  if (PreviousExpPedal != ExpPedal())
+  {
+    PreviousExpPedal = ExpPedal();
+    LCDNumber(1,13,PreviousExpPedal);
+    SendMidiCC(CC,CCSelect,PreviousExpPedal);
+  }
 */
 }
 
@@ -193,19 +195,29 @@ byte Keypress()
                     return 0;
 }
   
+  
+  
 byte ExpPedal()
 {
+  // WARNING. R1 is not installed on PCB
   return map(analogRead(EXP),0,1024,0,127);
 }
 
 
-void SendProgram(byte patch)
+
+// Change Program (Patch).
+void ChangeProgram(byte MidiChannel, byte Patch)
 {
-  Serial.write(0xC0);
-  Serial.write(patch);
+  // 0xC0 = Program Change / Channel 0
+  // 0xBF + X = Program Change  @ Channel X
+  Serial.write(0xBF+MidiChannel);
+  Serial.write(Patch);
 
 }
 
+
+
+// Send a MIDI Control Change Message
 void SendMidiCC(byte MidiChannel, byte CCNumber, byte Value)
 {
   // 0xB0 = Control Change / Channel 0.
@@ -214,6 +226,8 @@ void SendMidiCC(byte MidiChannel, byte CCNumber, byte Value)
   Serial.write(CCNumber);
   Serial.write(Value);
 }
+
+
 
 /*
 void LCDNumber(byte line, byte pos, byte number)
