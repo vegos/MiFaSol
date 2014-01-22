@@ -1,7 +1,22 @@
-#include <Wire.h> 
-#include <LiquidCrystal_I2C.h>
+//                  __  ____ ______      _____       __
+//                 /  |/  (_) ____/___ _/ ___/____  / /
+//                / /|_/ / / /_  / __ `/\__ \/ __ \/ / 
+//               / /  / / / __/ / /_/ /___/ / /_/ / /  
+//              /_/  /_/_/_/    \__,_//____/\____/_/ 
+//
+//         ©2014, Antonis Maglaras :: maglaras@gmail.com
+//                          MIDI Controller
+//                           Version 0.05a
+//
+//
+//
 
-LiquidCrystal_I2C lcd(0x20,16,2);  // set the LCD address to 0x20 for a 16 chars and 2 line display
+// -- not in use yet ---
+//#include <Wire.h> 
+//#include <LiquidCrystal_I2C.h>
+#include <IRremote.h>
+
+//LiquidCrystal_I2C lcd(0x20,16,2);
 
 
 #define  IO1     5
@@ -15,27 +30,34 @@ LiquidCrystal_I2C lcd(0x20,16,2);  // set the LCD address to 0x20 for a 16 chars
 #define  IO9     9
 #define  EXP    A0
 
-volatile byte CC = 0x80;
+volatile byte CC = 1;
 volatile byte CCSelect = 1;
 volatile byte PreviousExpPedal = 0;
 volatile int KeyDelay = 50;                  // 50ms for keypress
+volatile int Patch = 0;
+volatile int Volume = 0;
+
+IRrecv irrecv(IO9);
+decode_results results;
 
 void setup()
 {
-  lcd.init();
+  irrecv.enableIRIn(); // Start the receiver
+
+/*  lcd.init();
   pinMode(IO1,INPUT_PULLUP);
   pinMode(IO2,INPUT_PULLUP);
   pinMode(IO3,INPUT_PULLUP);
   pinMode(IO4,INPUT_PULLUP);
   pinMode(IO5,INPUT_PULLUP);
   pinMode(IO6,INPUT_PULLUP);
-  pinMode(IO7,INPUT_PULLUP);
+//  pinMode(IO7,INPUT_PULLUP);
   pinMode(IO8,INPUT_PULLUP);
   pinMode(IO9,INPUT_PULLUP);  
+*/  
   Serial.begin(31250);
-  lcd.backlight();
+/*  lcd.backlight();
   lcd.clear();
-  //         0123456789012345
   lcd.setCursor(0,0);
   lcd.print("    MiFaSol     ");
   lcd.setCursor(0,1);
@@ -48,27 +70,94 @@ void setup()
   lcd.print("PGM:---  EXP:---");
   lcd.setCursor(0,1);
   lcd.print("");
+  */
 }
 
 void loop()
 {
+  if (irrecv.decode(&results)) 
+  {
+    switch (results.value)
+    {
+      case 0x90:
+        Patch+=1;
+        if (Patch>127)
+          Patch=127;
+        SendProgram((byte)Patch);
+        delay(100);
+        break;
+      case 0x890:
+        Patch-=1;
+        if (Patch<0)
+          Patch=0;
+        SendProgram((byte)Patch);
+        delay(100);
+        break;
+      case 0x10:
+        SendProgram(0);
+        break;
+      case 0x810:
+        SendProgram(1);
+        break;
+      case 0x410:
+        SendProgram(2);
+        break;
+      case 0xc10:
+        SendProgram(3);
+        break;
+      case 0x210:
+        SendProgram(4);
+        break;
+      case 0xA10:
+        SendProgram(5);
+        break;
+      case 0x610:
+        SendProgram(6);
+        break;
+      case 0xe10:
+        SendProgram(7);
+        break;
+      case 0x110:
+        SendProgram(8);
+        break;
+      case 0x910:
+        SendProgram(9);
+        break;
+        
+      case 0xc90:
+        Volume-=1;
+        if (Volume<0)
+          Volume=0;
+        SendMidiCC(1,0,Volume);
+        break;
+      case 0x490:
+        Volume+=1;
+        if (Volume>127)
+          Volume=127;
+        SendMidiCC(1,0,(byte)Volume);
+        break;
+    }
+    irrecv.resume();
+  }
+/*
   byte Key = Keypress();
   if (Key != 0)
   {
     long tmpmillis=millis();    
     SendProgram(Key);
-    LCDNumber(0,4,Key);
-    LCDText(1,"Done!");
+//    LCDNumber(0,4,Key);
+//    LCDText(1,"Done!");
     while ((millis()-tmpmillis<KeyDelay) && (Keypress()==Key));  // DELAY for key depress or time
-    LCDText(1,"     ");
+//    LCDText(1,"     ");
   }
     
-  if (PreviousExpPedal != ExpPedal())
-  {
-    PreviousExpPedal = ExpPedal();
-    LCDNumber(1,13,PreviousExpPedal);
-    SendMidiCC(CC,CCSelect,PreviousExpPedal);
-  }
+//  if (PreviousExpPedal != ExpPedal())
+//  {
+//    PreviousExpPedal = ExpPedal();
+//    LCDNumber(1,13,PreviousExpPedal);
+//    SendMidiCC(CC,CCSelect,PreviousExpPedal);
+//  }
+*/
 }
 
 
@@ -117,13 +206,16 @@ void SendProgram(byte patch)
 
 }
 
-void SendMidiCC(byte CC_data, byte midiCCselect, byte AnalogValue)
+void SendMidiCC(byte MidiChannel, byte CCNumber, byte Value)
 {
-  Serial.write(CC_data);
-  Serial.write(midiCCselect);
-  Serial.write(AnalogValue);
+  // 0xB0 = Control Change / Channel 0.
+  // 0xAF + X = Control Change @ Channel X
+  Serial.write(0xAF+MidiChannel);
+  Serial.write(CCNumber);
+  Serial.write(Value);
 }
 
+/*
 void LCDNumber(byte line, byte pos, byte number)
 {
   lcd.setCursor(pos,line);
@@ -139,3 +231,5 @@ void LCDText(byte line, char* text)
   lcd.setCursor(0,line);
   lcd.print(text);
 }
+
+*/
