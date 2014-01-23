@@ -6,7 +6,7 @@
 //
 //         ©2014, Antonis Maglaras :: maglaras@gmail.com
 //                          MIDI Controller
-//                           Version 0.07a
+//                           Version 0.08a
 //
 //
 //
@@ -64,6 +64,19 @@ char* MenuItems[5] = { "",
                        "Factory Reset   "
                       };
 
+// Main Menu Strings
+char* FootSwitches[11] = { "",
+                           "Set FootSwitch 1", 
+                           "Set FootSwitch 2", 
+                           "Set FootSwitch 3", 
+                           "Set FootSwitch 4", 
+                           "Set FootSwitch 5", 
+                           "Set FootSwitch 6", 
+                           "Set FootSwitch 7", 
+                           "Set FootSwitch 8", 
+                           "Set FootSwitch 9", 
+                           "Set Expr. Pedal ", 
+                         };
 
 
 
@@ -328,6 +341,7 @@ void MainMenu()
             SetupMIDIChannel();
             break;
           case 2: // set foot switches
+            FootSwitchMenu();
             break;
           case 3: // calibrate expr. pedal
             break;
@@ -411,4 +425,85 @@ void FactoryReset()
   EEPROM.write(9,8);
   EEPROM.write(10,9);
   while (true);
+}
+
+
+void FootSwitchMenu()
+{
+  byte Item=1;
+  boolean StayInside=true;
+  while (StayInside)
+  {
+    lcd.setCursor(0,1);
+    lcd.print(FootSwitches[Item]);
+    byte tmp=Keypress();
+    switch (tmp)
+    {
+      case 1: // left
+        Item-=1;
+        if (Item<1)
+          Item=10;
+        break;
+      case 2: // right
+        Item+=1;
+        if (Item>10)
+          Item=1;
+        break;
+      case 3: // enter
+        SetupFootSwitch(Item);
+        break;
+      case 4: // back
+        StayInside=false;
+        break;
+    }
+  }
+}
+
+void SetupFootSwitch(byte Switch)
+{
+  lcd.setCursor(0,1);
+  if ((Switch>=1) && (Switch<=9))
+  {
+    lcd.print("SW ");
+    lcd.print(Switch);
+    lcd.print(" - CC: [  ] ");
+    // 0123456789012345
+    // SW 1 - CC: [01]
+  }
+  else
+    lcd.print("EXPR - CC: [  ] ");
+  boolean StayInside=true;
+  byte tmpCC=1;
+  while (StayInside)
+  {
+    DisplayCC(tmpCC);
+    byte tmp=Keypress();
+    switch (tmp)
+    {
+      case 1: // left
+        tmpCC-=1;
+        if (tmpCC<1)
+          tmpCC=17;
+        break;
+      case 2: // right
+        tmpCC+=1;
+        if (tmpCC>17)
+          tmpCC=1;
+        break;
+      case 3: // enter
+        EEPROM.write(Switch,(tmpCC-1));
+        break;
+      case 4: // back
+        StayInside=false;
+        break;
+    }
+  }    
+}
+
+void DisplayCC(byte num)
+{
+  lcd.setCursor(12,1);
+  if (num<11)
+    lcd.print("0");
+  lcd.print(num-1);
 }
