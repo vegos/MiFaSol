@@ -6,7 +6,7 @@
 //
 //         ©2014, Antonis Maglaras :: maglaras@gmail.com
 //                          MIDI Controller
-//                           Version 0.08a
+//                           Version 0.10a
 //
 //
 //
@@ -124,7 +124,7 @@ void setup()
   lcd.clear();
   lcd.print("PGM:---  EXP:---");
   lcd.setCursor(0,1);
-  lcd.print("");
+  lcd.print("                ");
 
 }
 
@@ -322,6 +322,7 @@ void MainMenu()
     lcd.setCursor(0,1);
     lcd.print(MenuItems[Menu]);
     byte tmp=Keypress();
+    while (Keypress()!=0);    
     switch (tmp)
     {
       case 1:  // left
@@ -355,6 +356,7 @@ void MainMenu()
         break;
     }
   }
+  ClearScreen();
 }
 
 void SetupMIDIChannel()
@@ -363,11 +365,12 @@ void SetupMIDIChannel()
   //         0123456789012345
   lcd.print("MIDI Channel    ");
   lcd.setCursor(13,1);
-  byte tmpChannel=MChannel;
+  byte tmpChannel=MChannel+1;
   boolean StayInside=true;
   while (StayInside)
   {
     byte tmp=Keypress();
+    while (Keypress()!=0);
     switch (tmp)
     {
       case 1: // left
@@ -384,7 +387,7 @@ void SetupMIDIChannel()
         ShowMIDIChannel(tmpChannel);
         break;
       case 3: // enter
-        MChannel=tmpChannel;
+        MChannel=tmpChannel-1;
         EEPROM.write(0,MChannel);  // write to eeprom
         break;
       case 4: // back
@@ -405,6 +408,7 @@ void ShowMIDIChannel(byte Channel)
       if (Channel<10)
         lcd.print("0");
       lcd.print(Channel);
+      lcd.print(" ");
     }
 }
 
@@ -437,6 +441,7 @@ void FootSwitchMenu()
     lcd.setCursor(0,1);
     lcd.print(FootSwitches[Item]);
     byte tmp=Keypress();
+    while (Keypress()!=0);
     switch (tmp)
     {
       case 1: // left
@@ -478,6 +483,7 @@ void SetupFootSwitch(byte Switch)
   {
     DisplayCC(tmpCC);
     byte tmp=Keypress();
+    while (Keypress()!=0);    
     switch (tmp)
     {
       case 1: // left
@@ -507,3 +513,12 @@ void DisplayCC(byte num)
     lcd.print("0");
   lcd.print(num-1);
 }
+
+
+void ClearScreen()
+{
+  lcd.clear();
+  lcd.print("PGM:---  EXP:---");
+  lcd.setCursor(0,1);
+  lcd.print("                ");
+}  
