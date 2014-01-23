@@ -6,17 +6,18 @@
 //
 //         ©2014, Antonis Maglaras :: maglaras@gmail.com
 //                          MIDI Controller
-//                           Version 0.06a
+//                           Version 0.07a
 //
 //
 //
 
 // -- not in use yet ---
-//#include <Wire.h> 
-//#include <LiquidCrystal_I2C.h>
-#include <IRremote.h>
+#include <EEPROM.h>
+#include <Wire.h> 
+#include <LiquidCrystal_I2C.h>
+//#include <IRremote.h>
 
-//LiquidCrystal_I2C lcd(0x20,16,2);
+LiquidCrystal_I2C lcd(0x27,16,2);
 
 
 #define  IO1     5
@@ -36,16 +37,55 @@ volatile byte PreviousExpPedal = 0;
 volatile int KeyDelay = 50;                  // 50ms for keypress
 volatile int Patch = 0;
 volatile int Volume = 0;
-volatile byte MChannel = 1;
 
-IRrecv irrecv(IO9);
-decode_results results;
+byte MChannel = 1;
+byte FS1 = 1;
+byte FS2 = 2;
+byte FS3 = 3;
+byte FS4 = 4;
+byte FS5 = 5;
+byte FS6 = 6;
+byte FS7 = 7;
+byte FS8 = 8;
+byte FS9 = 9;
+byte PEDAL = 10;
+
+
+
+//IRrecv irrecv(IO9);
+//decode_results results;
+
+
+// Main Menu Strings
+char* MenuItems[5] = { "",
+                       "Set MIDI Channel", 
+                       "Set Footswitches", 
+                       "Calibrate Expr. ",
+                       "Factory Reset   "
+                      };
+
+
+
+
+
+
+
 
 void setup()
 {
-  irrecv.enableIRIn(); // Start the receiver
-
-/*  lcd.init();
+//  irrecv.enableIRIn(); // Start the receiver
+  MChannel=EEPROM.read(0);
+  FS1=EEPROM.read(1);
+  FS2=EEPROM.read(2);
+  FS3=EEPROM.read(3);
+  FS4=EEPROM.read(4);
+  FS5=EEPROM.read(5);
+  FS6=EEPROM.read(6);
+  FS7=EEPROM.read(7);
+  FS8=EEPROM.read(8);
+  FS9=EEPROM.read(9);
+  PEDAL=EEPROM.read(10);
+  lcd.init();
   pinMode(IO1,INPUT_PULLUP);
   pinMode(IO2,INPUT_PULLUP);
   pinMode(IO3,INPUT_PULLUP);
@@ -55,16 +95,16 @@ void setup()
   pinMode(IO7,INPUT_PULLUP);
   pinMode(IO8,INPUT_PULLUP);
 // WARNING: IO9 is the TSOP1838T IR Receiver
-//  pinMode(IO9,INPUT_PULLUP);  
-*/  
+  pinMode(IO9,INPUT_PULLUP);  
+
   Serial.begin(31250);
-/*  lcd.backlight();
+  lcd.backlight();
   lcd.clear();
   lcd.setCursor(0,0);
   lcd.print("    MiFaSol     ");
   lcd.setCursor(0,1);
   lcd.print("MIDI Controller ");
-  delay(1000);
+  delay(1500);
   lcd.setCursor(0,1);
   lcd.print(" (c)2014, Magla ");
   delay(1500);
@@ -72,11 +112,12 @@ void setup()
   lcd.print("PGM:---  EXP:---");
   lcd.setCursor(0,1);
   lcd.print("");
-  */
+
 }
 
 void loop()
 {
+/*
   if (irrecv.decode(&results)) 
   {
     switch (results.value)
@@ -141,12 +182,12 @@ void loop()
     }
     irrecv.resume();
   }
-/*
+*/
   byte Key = Keypress();
   if (Key != 0)
   {
     long tmpmillis=millis();    
-    ChangeProgram(Key);
+    ChangeProgram(MChannel,Key);
     LCDNumber(0,4,Key);
     LCDText(1,"Done!");
     while ((millis()-tmpmillis<KeyDelay) && (Keypress()==Key));  // DELAY for key depress or time
@@ -156,15 +197,22 @@ void loop()
   if (PreviousExpPedal != ExpPedal())
   {
     PreviousExpPedal = ExpPedal();
-    LCDNumber(1,13,PreviousExpPedal);
-    SendMidiCC(CC,CCSelect,PreviousExpPedal);
+    LCDNumber(0,13,PreviousExpPedal);
+    SendMidiCC(MChannel,0,(byte)PreviousExpPedal);
   }
-*/
 }
 
 
 byte Keypress()
 {
+  if ((digitalRead(IO1)==LOW) && (digitalRead(IO2)==LOW))
+  {
+    // Enter menu
+    MainMenu();
+    return 0;
+  }
+  
+  
   if (digitalRead(IO1)==LOW)
     return 1;
   else
@@ -223,13 +271,15 @@ void SendMidiCC(byte MidiChannel, byte CCNumber, byte Value)
   // 0xB0 = Control Change / Channel 0.
   // 0xAF + X = Control Change @ Channel X
   Serial.write(0xAF+MidiChannel);
+  // or
+  // Serial.write(0xB0 | (MidiChannel & 0x0F));
   Serial.write(CCNumber);
   Serial.write(Value);
 }
 
 
 
-/*
+
 void LCDNumber(byte line, byte pos, byte number)
 {
   lcd.setCursor(pos,line);
@@ -246,4 +296,119 @@ void LCDText(byte line, char* text)
   lcd.print(text);
 }
 
-*/
+
+void MainMenu()
+{
+  lcd.clear();
+  lcd.print("Setup");
+  lcd.setCursor(0,1);
+  byte Menu=1;
+  boolean StayInside=true;
+  while (StayInside)
+  {
+    lcd.setCursor(0,1);
+    lcd.print(MenuItems[Menu]);
+    byte tmp=Keypress();
+    switch (tmp)
+    {
+      case 1:  // left
+        Menu-=1;
+        if (Menu<1)
+          Menu=4;
+          break;
+      case 2:  // right
+        Menu+=1;
+        if (Menu>4)
+          Menu=1;
+          break;
+      case 3:  // enter
+        switch (Menu)
+        {
+          case 1: // Set midi channel
+            SetupMIDIChannel();
+            break;
+          case 2: // set foot switches
+            break;
+          case 3: // calibrate expr. pedal
+            break;
+          case 4: // factory reset
+            FactoryReset();
+            break;
+        }
+        break;
+      case 4:  // back-exit
+        StayInside=false;
+        break;
+    }
+  }
+}
+
+void SetupMIDIChannel()
+{
+  lcd.setCursor(0,1);
+  //         0123456789012345
+  lcd.print("MIDI Channel    ");
+  lcd.setCursor(13,1);
+  byte tmpChannel=MChannel;
+  boolean StayInside=true;
+  while (StayInside)
+  {
+    byte tmp=Keypress();
+    switch (tmp)
+    {
+      case 1: // left
+        if (tmpChannel==0)
+          tmpChannel=17;
+        else
+          tmpChannel-=1;
+        ShowMIDIChannel(tmpChannel);
+        break;
+      case 2: // right
+        tmpChannel+=1;
+        if (tmpChannel>17)
+          tmpChannel=1;
+        ShowMIDIChannel(tmpChannel);
+        break;
+      case 3: // enter
+        MChannel=tmpChannel;
+        EEPROM.write(0,MChannel);  // write to eeprom
+        break;
+      case 4: // back
+        StayInside=false;
+        break;
+    }
+  }
+}
+
+
+void ShowMIDIChannel(byte Channel)
+{
+  lcd.setCursor(13,1);
+  if (Channel==17)
+    lcd.print("ALL");
+  else
+    {
+      if (Channel<10)
+        lcd.print("0");
+      lcd.print(Channel);
+    }
+}
+
+void FactoryReset()
+{
+  lcd.setCursor(0,1);
+  //         0123456789012345
+  lcd.print("* PLEASE RESET *");
+  EEPROM.write(0,1);
+  EEPROM.write(1,0);
+  EEPROM.write(2,1);
+  EEPROM.write(3,2);
+  EEPROM.write(4,3);
+  EEPROM.write(5,4);
+  EEPROM.write(6,5);
+  EEPROM.write(7,6);
+  EEPROM.write(8,7);
+  EEPROM.write(9,8);
+  EEPROM.write(10,9);
+  while (true);
+}
