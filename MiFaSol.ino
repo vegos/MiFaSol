@@ -6,7 +6,7 @@
 //
 //         ©2014, Antonis Maglaras :: maglaras@gmail.com
 //                          MIDI Controller
-//                           Version 0.10a
+//                           Version 0.11a
 //
 //
 //
@@ -455,7 +455,7 @@ void FootSwitchMenu()
           Item=1;
         break;
       case 3: // enter
-        SetupFootSwitch(Item);
+        ChooseFSOption(Item);
         break;
       case 4: // back
         StayInside=false;
@@ -464,7 +464,7 @@ void FootSwitchMenu()
   }
 }
 
-void SetupFootSwitch(byte Switch)
+void SetupFootSwitchCC(byte Switch)
 {
   lcd.setCursor(0,1);
   if ((Switch>=1) && (Switch<=9))
@@ -515,6 +515,111 @@ void DisplayCC(byte num)
 }
 
 
+void SetupFootSwitchPatch(byte Switch)
+{
+  lcd.setCursor(0,1);
+  lcd.print("(");
+  lcd.print(Switch);
+  lcd.print(") Patch [  ] ");
+  // 0123456789012345
+  // (1) Patch [001] 
+  boolean StayInside=true;
+  byte tmpPatch=1;
+  while (StayInside)
+  {
+    DisplayPatchMemory(tmpPatch);
+    byte tmp=Keypress();
+    while (Keypress()!=0);    
+    switch (tmp)
+    {
+      case 1: // left
+        tmpPatch-=1;
+        if (tmpPatch<1)
+          tmpPatch=127;
+        break;
+      case 2: // right
+        tmpPatch+=1;
+        if (tmpPatch>127)
+          tmpPatch=1;
+        break;
+      case 3: // enter
+        EEPROM.write(Switch+20,(tmpPatch-1));
+        break;
+      case 4: // back
+        StayInside=false;
+        break;
+    }
+  }    
+}
+
+void DisplayPatchMemory(byte num)
+{
+  lcd.setCursor(11,1);
+  if (num<101)
+    lcd.print("0");
+  if (num<11)
+    lcd.print("0");
+  lcd.print(num-1);
+}
+
+
+void ChooseFSOption(byte Switch)
+{
+  lcd.setCursor(0,1);
+  lcd.print("(");
+  lcd.print(Switch);
+  lcd.print(") Msg [      ]");
+  // 0123456789012345
+  // (1) Msg [CCtch ]
+  boolean StayInside=true;
+  byte tmpMode=1;
+  while (StayInside)
+  {
+    DisplaySwitchMode(tmpMode);
+    byte tmp=Keypress();
+    while (Keypress()!=0);    
+    switch (tmp)
+    {
+      case 1: // left
+        tmpMode-=1;
+        if (tmpMode<1)
+          tmpMode=2;
+        break;
+      case 2: // right
+        tmpMode+=1;
+        if (tmpMode>2)
+          tmpMode=1;
+        break;
+      case 3: // enter
+        EEPROM.write(Switch+30,(tmpMode));
+        if (tmpMode==1)
+          SetupFootSwitchPatch(Switch);
+        else
+          SetupFootSwitchCC(Switch);
+        break;
+      case 4: // back
+        StayInside=false;
+        break;
+    }
+  }    
+}
+
+void DisplaySwitchMode(byte num)
+{
+  lcd.setCursor(9,1);
+  switch (num)
+  {
+    case 1:
+      lcd.print("Patch");
+      break;
+    case 2:
+      lcd.print("CC   ");
+      break;
+  }
+}
+
+
+
 void ClearScreen()
 {
   lcd.clear();
@@ -522,3 +627,4 @@ void ClearScreen()
   lcd.setCursor(0,1);
   lcd.print("                ");
 }  
+
