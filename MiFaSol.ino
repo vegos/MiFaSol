@@ -6,7 +6,7 @@
 //
 //         ©2014, Antonis Maglaras :: maglaras@gmail.com
 //                          MIDI Controller
-//                           Version 0.11a
+//                           Version 0.12a
 //
 //
 //
@@ -37,6 +37,8 @@ volatile byte PreviousExpPedal = 0;
 volatile int KeyDelay = 50;                  // 50ms for keypress
 volatile int Patch = 0;
 volatile int Volume = 0;
+volatile int MinExp = 0;
+volatile int MaxExp = 1024;
 
 byte MChannel = 1;
 byte FS1 = 1;
@@ -98,6 +100,8 @@ void setup()
   FS8=EEPROM.read(8);
   FS9=EEPROM.read(9);
   PEDAL=EEPROM.read(10);
+  MinExp=ReadFromMem(11);
+  MaxExp=ReadFromMem(13);
   lcd.init();
   pinMode(IO1,INPUT_PULLUP);
   pinMode(IO2,INPUT_PULLUP);
@@ -261,7 +265,7 @@ byte Keypress()
 byte ExpPedal()
 {
   // WARNING. R1 is not installed on PCB
-  return map(analogRead(EXP),0,1024,0,127);
+  return map(analogRead(EXP),MinExp,MaxExp,0,127);
 }
 
 
@@ -345,6 +349,7 @@ void MainMenu()
             FootSwitchMenu();
             break;
           case 3: // calibrate expr. pedal
+            CalibratePedal();
             break;
           case 4: // factory reset
             FactoryReset();
@@ -428,6 +433,8 @@ void FactoryReset()
   EEPROM.write(8,7);
   EEPROM.write(9,8);
   EEPROM.write(10,9);
+  WriteToMem(11,0);
+  WriteToMem(13,1024);
   while (true);
 }
 
@@ -604,6 +611,7 @@ void ChooseFSOption(byte Switch)
   }    
 }
 
+
 void DisplaySwitchMode(byte num)
 {
   lcd.setCursor(9,1);
@@ -618,6 +626,71 @@ void DisplaySwitchMode(byte num)
   }
 }
 
+void CalibratePedal()
+{
+  lcd.setCursor(0,0);
+  //         0123456789012345
+  lcd.print("Fully press exp.");
+  lcd.setCursor(0,1);
+  lcd.print("Value [    ]    ");
+  boolean StayInside=true;
+  int tmpMinMax=1024;
+  while (StayInside)
+  {
+    tmpMinMax=analogRead(EXP);
+    DisplayValuePedal(tmpMinMax);
+    byte tmp=Keypress();
+    while (Keypress()!=0);    
+    switch (tmp)
+    {
+      case 3: // enter
+        MaxExp = tmpMinMax;
+        WriteToMem(13,MaxExp);
+        StayInside=false;
+        break;
+      case 4: // back
+        StayInside=false;
+        break;
+    }
+  }    
+  lcd.setCursor(0,0);
+  //         0123456789012345
+  lcd.print("Fully de-press  ");
+  lcd.setCursor(0,1);
+  lcd.print("Value [    ]    ");
+  StayInside=true;
+  tmpMinMax=0;
+  while (StayInside)
+  {
+    tmpMinMax=analogRead(EXP);
+    DisplayValuePedal(tmpMinMax);
+    byte tmp=Keypress();
+    while (Keypress()!=0);    
+    switch (tmp)
+    {
+      case 3: // enter
+        MaxExp = tmpMinMax;
+        WriteToMem(11,MaxExp);
+        StayInside=false;
+        break;
+      case 4: // back
+        StayInside=false;
+        break;
+    }
+  }      
+}
+
+void DisplayValuePedal(int num)
+{
+  lcd.setCursor(7,1);
+  if (num<1000)
+    lcd.print("0");
+  if (num<100)
+    lcd.print("0");
+  if (num<10)
+    lcd.print("0");
+  lcd.print(num);
+}
 
 
 void ClearScreen()
@@ -628,3 +701,28 @@ void ClearScreen()
   lcd.print("                ");
 }  
 
+
+// --- WRITE TO EEPROM procedure ---------------------------------------------------------------------------------------------------------------------
+// Write numbers (0-65535) to EEPROM (using 2 bytes).
+
+void WriteToMem(byte address, int number)
+{
+  int a = number/256;
+  int b = number % 256;
+  EEPROM.write(address,a);
+  EEPROM.write(address+1,b);
+}
+
+
+
+
+// --- READ FRON EEPROM procedure --------------------------------------------------------------------------------------------------------------------
+// Read numbers (0-65535) from EEPROM (using 2 bytes).
+
+int ReadFromMem(byte address)
+{
+  int a=EEPROM.read(address);
+  int b=EEPROM.read(address+1);
+
+  return a*256+b;
+}
