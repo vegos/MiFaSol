@@ -6,16 +6,14 @@
 //
 //         ©2014, Antonis Maglaras :: maglaras@gmail.com
 //                          MIDI Controller
-//                           Version 0.12a
+//                           Version 0.14a
 //
 //
 //
 
-// -- not in use yet ---
 #include <EEPROM.h>
 #include <Wire.h> 
 #include <LiquidCrystal_I2C.h>
-//#include <IRremote.h>
 
 LiquidCrystal_I2C lcd(0x27,16,2);
 
@@ -53,11 +51,6 @@ byte FS9 = 9;
 byte PEDAL = 10;
 
 
-
-//IRrecv irrecv(IO9);
-//decode_results results;
-
-
 // Main Menu Strings
 char* MenuItems[5] = { "",
                        "Set MIDI Channel", 
@@ -88,7 +81,6 @@ char* FootSwitches[11] = { "",
 
 void setup()
 {
-//  irrecv.enableIRIn(); // Start the receiver
   MChannel=EEPROM.read(0);
   FS1=EEPROM.read(1);
   FS2=EEPROM.read(2);
@@ -111,7 +103,6 @@ void setup()
   pinMode(IO6,INPUT_PULLUP);
   pinMode(IO7,INPUT_PULLUP);
   pinMode(IO8,INPUT_PULLUP);
-// WARNING: IO9 is the TSOP1838T IR Receiver
   pinMode(IO9,INPUT_PULLUP);  
 
   Serial.begin(31250);
@@ -134,72 +125,6 @@ void setup()
 
 void loop()
 {
-/*
-  if (irrecv.decode(&results)) 
-  {
-    switch (results.value)
-    {
-      case 0x90:
-        Patch+=1;
-        if (Patch>127)
-          Patch=127;
-        ChangeProgram(MChannel, Patch);
-        delay(100);
-        break;
-      case 0x890:
-        Patch-=1;
-        if (Patch<0)
-          Patch=0;
-        ChangeProgram(MChannel, Patch);
-        delay(100);
-        break;
-      case 0x10:      // Key 1 on remote
-        ChangeProgram(MChannel,0);
-        break;
-      case 0x810:     // Key 2 on remote
-        ChangeProgram(MChannel,1);
-        break;
-      case 0x410:
-        ChangeProgram(MChannel,2);
-        break;
-      case 0xc10:
-        ChangeProgram(MChannel,3);
-        break;
-      case 0x210:
-        ChangeProgram(MChannel,4);
-        break;
-      case 0xA10:
-        ChangeProgram(MChannel,5);
-        break;
-      case 0x610:
-        ChangeProgram(MChannel,6);
-        break;
-      case 0xe10:
-        ChangeProgram(MChannel,7);
-        break;
-      case 0x110:
-        ChangeProgram(MChannel,8);
-        break;
-      case 0x910:     // Key 0 on remote
-        ChangeProgram(MChannel,9);
-        break;
-        
-      case 0xc90:
-        Volume-=1;
-        if (Volume<0)
-          Volume=0;
-        SendMidiCC(MChannel,0,Volume);
-        break;
-      case 0x490:
-        Volume+=1;
-        if (Volume>127)
-          Volume=127;
-        SendMidiCC(MChannel,0,(byte)Volume);
-        break;
-    }
-    irrecv.resume();
-  }
-*/
   byte Key = Keypress();
   if (Key != 0)
   {
@@ -264,7 +189,6 @@ byte Keypress()
   
 byte ExpPedal()
 {
-  // WARNING. R1 is not installed on PCB
   return map(analogRead(EXP),MinExp,MaxExp,0,127);
 }
 
