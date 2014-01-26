@@ -6,7 +6,7 @@
 //
 //         ©2014, Antonis Maglaras :: maglaras@gmail.com
 //                          MIDI Controller
-//                           Version 2.01a
+//                           Version 2.10a
 //
 //
 //
@@ -59,7 +59,7 @@ LiquidCrystal_I2C lcd(0x27,16,2);
 volatile byte CC = 1;
 volatile byte CCSelect = 1;
 volatile byte PreviousExpPedal = 0;
-volatile int KeyDelay = 50;                  // 50ms for keypress
+volatile int KeyDelay = 75;                  // 50ms for keypress
 volatile int Patch = 0;
 volatile int Volume = 0;
 volatile int MinExp = 0;
@@ -100,10 +100,7 @@ char* FootSwitches[11] = { "",
 
 void setup()
 {
-  MIDIChannel=EEPROM.read(0);
   Initialize();
-  MinExp=ReadFromMem(11);
-  MaxExp=ReadFromMem(13);
   lcd.init();
   pinMode(IO1,INPUT_PULLUP);
   pinMode(IO2,INPUT_PULLUP);
@@ -281,17 +278,22 @@ void MainMenu()
         {
           case 1: // Set midi channel
             SetupMIDIChannel();
+            StayInside=false;
             break;
           case 2: // set foot switches
             FootSwitchMenu();
+            StayInside=false;
             break;
           case 3: // calibrate expr. pedal
             CalibratePedal();
+            StayInside=false;
             break;
           case 4: // factory reset
             FactoryReset();
+            StayInside=false;
             break;
         }
+        StayInside=false;
         break;
       case 4:  // back-exit
         StayInside=false;
@@ -307,30 +309,29 @@ void SetupMIDIChannel()
   //         0123456789012345
   lcd.print("MIDI Channel    ");
   lcd.setCursor(13,1);
-  byte tmpChannel=MIDIChannel+1;
+  byte tmpChannel=MIDIChannel;
   boolean StayInside=true;
   while (StayInside)
   {
+    ShowMIDIChannel(tmpChannel);    
     byte tmp=Keypress();
     while (Keypress()!=0);
     switch (tmp)
     {
       case 1: // left
-        if (tmpChannel==0)
-          tmpChannel=17;
-        else
-          tmpChannel-=1;
-        ShowMIDIChannel(tmpChannel);
+        tmpChannel-=1;
+        if (tmpChannel<1)
+          tmpChannel=16;
         break;
       case 2: // right
         tmpChannel+=1;
-        if (tmpChannel>17)
+        if (tmpChannel>16)
           tmpChannel=1;
-        ShowMIDIChannel(tmpChannel);
         break;
       case 3: // enter
-        MIDIChannel=tmpChannel-1;
+        MIDIChannel=tmpChannel;
         EEPROM.write(0,MIDIChannel);  // write to eeprom
+        StayInside=false;        
         break;
       case 4: // back
         StayInside=false;
@@ -343,15 +344,9 @@ void SetupMIDIChannel()
 void ShowMIDIChannel(byte Channel)
 {
   lcd.setCursor(13,1);
-  if (Channel==17)
-    lcd.print("ALL");
-  else
-    {
-      if (Channel<10)
-        lcd.print("0");
-      lcd.print(Channel);
-      lcd.print(" ");
-    }
+  if (Channel<10)
+    lcd.print("0");
+  lcd.print(Channel);
 }
 
 void FactoryReset()
@@ -361,6 +356,14 @@ void FactoryReset()
   lcd.print("* PLEASE RESET *");
   WriteToMem(11,0);
   WriteToMem(13,1024);
+  WriteToMem(0,1);
+  for (byte Switch=0; Switch<9; Switch++)
+  {    
+    EEPROM.write(31+Switch,2);
+    EEPROM.write(41+Switch,Switch+1);
+  }
+  EEPROM.write(39,1);
+  EEPROM.write(49,127);
   while (true);
 }
 
@@ -389,6 +392,7 @@ void FootSwitchMenu()
         break;
       case 3: // enter
         ChooseFSOption(Item);
+        StayInside=false;
         break;
       case 4: // back
         StayInside=false;
@@ -411,7 +415,7 @@ void SetupFootSwitchCC(byte Switch)
   else
     lcd.print("EXPR - CC: [  ] ");
   boolean StayInside=true;
-  byte tmpCC=1;
+  byte tmpCC=FS[Switch][1];
   while (StayInside)
   {
     DisplayCC(tmpCC);
@@ -430,7 +434,8 @@ void SetupFootSwitchCC(byte Switch)
           tmpCC=1;
         break;
       case 3: // enter
-        EEPROM.write(Switch,(tmpCC-1));
+        EEPROM.write(40+Switch,(tmpCC-1));
+        StayInside=false;
         break;
       case 4: // back
         StayInside=false;
@@ -457,7 +462,7 @@ void SetupFootSwitchPatch(byte Switch)
   // 0123456789012345
   // (1) Patch [001] 
   boolean StayInside=true;
-  byte tmpPatch=1;
+  byte tmpPatch=FS[Switch][0];
   while (StayInside)
   {
     DisplayPatchMemory(tmpPatch);
@@ -477,6 +482,7 @@ void SetupFootSwitchPatch(byte Switch)
         break;
       case 3: // enter
         EEPROM.write(Switch+40,(tmpPatch-1));
+        StayInside=false;        
         break;
       case 4: // back
         StayInside=false;
@@ -505,7 +511,7 @@ void SetupFootSwitchNoteOn(byte Switch)
   // 0123456789012345
   // (1) Patch [001] 
   boolean StayInside=true;
-  byte tmpNote=1;
+  byte tmpNote=FS[Switch][1];
   while (StayInside)
   {
     DisplayNoteMemory(tmpNote-1);
@@ -525,6 +531,7 @@ void SetupFootSwitchNoteOn(byte Switch)
         break;
       case 3: // enter
         EEPROM.write(Switch+40,(tmpNote-1));
+        StayInside=false;        
         break;
       case 4: // back
         StayInside=false;
@@ -562,6 +569,7 @@ void SetupFootSwitchNoteOff(byte Switch)
         break;
       case 3: // enter
         EEPROM.write(Switch+40,(tmpNote-1));
+        StayInside=false;        
         break;
       case 4: // back
         StayInside=false;
@@ -590,7 +598,7 @@ void ChooseFSOption(byte Switch)
   // 0123456789012345
   // (1) Msg [      ]
   boolean StayInside=true;
-  byte tmpMode=1;
+  byte tmpMode=FS[Switch][1];
   while (StayInside)
   {
     DisplaySwitchMode(tmpMode);
@@ -625,6 +633,7 @@ void ChooseFSOption(byte Switch)
             SetupFootSwitchNoteOff(Switch);
             break;
         }
+        StayInside=false;
         break;
       case 4: // back
         StayInside=false;
@@ -758,6 +767,9 @@ int ReadFromMem(byte address)
 
 void Initialize()
 {
+  MIDIChannel=EEPROM.read(0);
+  MinExp=ReadFromMem(11);
+  MaxExp=ReadFromMem(13);
   for (byte Switch=0; Switch<10; Switch++)
   {    
     FS[Switch][0]=EEPROM.read(31+Switch);
