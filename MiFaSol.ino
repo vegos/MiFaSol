@@ -6,11 +6,38 @@
 //
 //         ©2014, Antonis Maglaras :: maglaras@gmail.com
 //                          MIDI Controller
-//                           Version 0.14a
+//                           Version 2.01a
 //
 //
 //
+//------- Some Documentation ---------------------------------------------------------------
+//
+//
+// EEPROM Memory & Settings
+// ------------------------
+//
+//            
+//       Type        Value
+//           \      / 
+//            \    /  
+// FootSwitch[10][1]
+// 
+// - Type can be:
+//   1. CC Message
+//   2. Program Change
+//   3. Note On
+//   4. Note Off
+//
+// - Value can be:
+//   0..127
+//
+//
+// EEPROM:
+// 31-40 = Type of message for Footswitch-31 (1..4)
+// 41-50 = Value (0..127)
 
+
+#include <MIDI.h>
 #include <EEPROM.h>
 #include <Wire.h> 
 #include <LiquidCrystal_I2C.h>
@@ -38,17 +65,9 @@ volatile int Volume = 0;
 volatile int MinExp = 0;
 volatile int MaxExp = 1024;
 
-byte MChannel = 1;
-byte FS1 = 1;
-byte FS2 = 2;
-byte FS3 = 3;
-byte FS4 = 4;
-byte FS5 = 5;
-byte FS6 = 6;
-byte FS7 = 7;
-byte FS8 = 8;
-byte FS9 = 9;
-byte PEDAL = 10;
+byte MIDIChannel = 1;
+
+byte FS[10][1];                              // Array for storing settings for foot switches
 
 
 // Main Menu Strings
@@ -81,17 +100,8 @@ char* FootSwitches[11] = { "",
 
 void setup()
 {
-  MChannel=EEPROM.read(0);
-  FS1=EEPROM.read(1);
-  FS2=EEPROM.read(2);
-  FS3=EEPROM.read(3);
-  FS4=EEPROM.read(4);
-  FS5=EEPROM.read(5);
-  FS6=EEPROM.read(6);
-  FS7=EEPROM.read(7);
-  FS8=EEPROM.read(8);
-  FS9=EEPROM.read(9);
-  PEDAL=EEPROM.read(10);
+  MIDIChannel=EEPROM.read(0);
+  Initialize();
   MinExp=ReadFromMem(11);
   MaxExp=ReadFromMem(13);
   lcd.init();
@@ -105,7 +115,8 @@ void setup()
   pinMode(IO8,INPUT_PULLUP);
   pinMode(IO9,INPUT_PULLUP);  
 
-  Serial.begin(31250);
+  MIDI.begin(MIDIChannel);
+//  Serial.begin(31250);
   lcd.backlight();
   lcd.clear();
   lcd.setCursor(0,0);
@@ -129,7 +140,7 @@ void loop()
   if (Key != 0)
   {
     long tmpmillis=millis();    
-    ChangeProgram(MChannel,Key);
+    SendCommand(Key-1);    // SEND Command based on keypress
     LCDNumber(0,4,Key);
     LCDText(1,"Done!");
     while ((millis()-tmpmillis<KeyDelay) && (Keypress()==Key));  // DELAY for key depress or time
@@ -140,7 +151,7 @@ void loop()
   {
     PreviousExpPedal = ExpPedal();
     LCDNumber(0,13,PreviousExpPedal);
-    SendMidiCC(MChannel,0,(byte)PreviousExpPedal);
+    SendMidiCC(MIDIChannel,0,(byte)PreviousExpPedal);
   }
 }
 
@@ -197,10 +208,11 @@ byte ExpPedal()
 // Change Program (Patch).
 void ChangeProgram(byte MidiChannel, byte Patch)
 {
+  MIDI.sendProgramChange(Patch,MidiChannel);
   // 0xC0 = Program Change / Channel 0
   // 0xBF + X = Program Change  @ Channel X
-  Serial.write(0xBF+MidiChannel);
-  Serial.write(Patch);
+//  Serial.write(0xBF+MidiChannel);
+//  Serial.write(Patch);
 
 }
 
@@ -209,13 +221,14 @@ void ChangeProgram(byte MidiChannel, byte Patch)
 // Send a MIDI Control Change Message
 void SendMidiCC(byte MidiChannel, byte CCNumber, byte Value)
 {
+  MIDI.sendControlChange(CCNumber,Value,MidiChannel);
   // 0xB0 = Control Change / Channel 0.
   // 0xAF + X = Control Change @ Channel X
-  Serial.write(0xAF+MidiChannel);
+//  Serial.write(0xAF+MidiChannel);
   // or
   // Serial.write(0xB0 | (MidiChannel & 0x0F));
-  Serial.write(CCNumber);
-  Serial.write(Value);
+//  Serial.write(CCNumber);
+//  Serial.write(Value);
 }
 
 
@@ -294,7 +307,7 @@ void SetupMIDIChannel()
   //         0123456789012345
   lcd.print("MIDI Channel    ");
   lcd.setCursor(13,1);
-  byte tmpChannel=MChannel+1;
+  byte tmpChannel=MIDIChannel+1;
   boolean StayInside=true;
   while (StayInside)
   {
@@ -316,8 +329,8 @@ void SetupMIDIChannel()
         ShowMIDIChannel(tmpChannel);
         break;
       case 3: // enter
-        MChannel=tmpChannel-1;
-        EEPROM.write(0,MChannel);  // write to eeprom
+        MIDIChannel=tmpChannel-1;
+        EEPROM.write(0,MIDIChannel);  // write to eeprom
         break;
       case 4: // back
         StayInside=false;
@@ -346,17 +359,6 @@ void FactoryReset()
   lcd.setCursor(0,1);
   //         0123456789012345
   lcd.print("* PLEASE RESET *");
-  EEPROM.write(0,1);
-  EEPROM.write(1,0);
-  EEPROM.write(2,1);
-  EEPROM.write(3,2);
-  EEPROM.write(4,3);
-  EEPROM.write(5,4);
-  EEPROM.write(6,5);
-  EEPROM.write(7,6);
-  EEPROM.write(8,7);
-  EEPROM.write(9,8);
-  EEPROM.write(10,9);
   WriteToMem(11,0);
   WriteToMem(13,1024);
   while (true);
@@ -474,7 +476,7 @@ void SetupFootSwitchPatch(byte Switch)
           tmpPatch=1;
         break;
       case 3: // enter
-        EEPROM.write(Switch+20,(tmpPatch-1));
+        EEPROM.write(Switch+40,(tmpPatch-1));
         break;
       case 4: // back
         StayInside=false;
@@ -494,6 +496,91 @@ void DisplayPatchMemory(byte num)
 }
 
 
+void SetupFootSwitchNoteOn(byte Switch)
+{
+  lcd.setCursor(0,1);
+  lcd.print("(");
+  lcd.print(Switch);
+  lcd.print(") NoteOn [  ]");
+  // 0123456789012345
+  // (1) Patch [001] 
+  boolean StayInside=true;
+  byte tmpNote=1;
+  while (StayInside)
+  {
+    DisplayNoteMemory(tmpNote-1);
+    byte tmp=Keypress();
+    while (Keypress()!=0);    
+    switch (tmp)
+    {
+      case 1: // left
+        tmpNote-=1;
+        if (tmpNote<1)
+          tmpNote=128;
+        break;
+      case 2: // right
+        tmpNote+=1;
+        if (tmpNote>128)
+          tmpNote=1;
+        break;
+      case 3: // enter
+        EEPROM.write(Switch+40,(tmpNote-1));
+        break;
+      case 4: // back
+        StayInside=false;
+        break;
+    }
+  }    
+}
+
+void SetupFootSwitchNoteOff(byte Switch)
+{
+  lcd.setCursor(0,1);
+  lcd.print("(");
+  lcd.print(Switch);
+  lcd.print(") NoteOf [  ]");
+  // 0123456789012345
+  // (1) Patch [001] 
+  boolean StayInside=true;
+  byte tmpNote=1;
+  while (StayInside)
+  {
+    DisplayNoteMemory(tmpNote-1);
+    byte tmp=Keypress();
+    while (Keypress()!=0);    
+    switch (tmp)
+    {
+      case 1: // left
+        tmpNote-=1;
+        if (tmpNote<1)
+          tmpNote=128;
+        break;
+      case 2: // right
+        tmpNote+=1;
+        if (tmpNote>128)
+          tmpNote=1;
+        break;
+      case 3: // enter
+        EEPROM.write(Switch+40,(tmpNote-1));
+        break;
+      case 4: // back
+        StayInside=false;
+        break;
+    }
+  }    
+}
+
+void DisplayNoteMemory(byte num)
+{
+  lcd.setCursor(13,1);
+  if (num<100)
+    lcd.print("0");
+  if (num<10)
+    lcd.print("0");
+  lcd.print(num);
+}
+
+
 void ChooseFSOption(byte Switch)
 {
   lcd.setCursor(0,1);
@@ -501,7 +588,7 @@ void ChooseFSOption(byte Switch)
   lcd.print(Switch);
   lcd.print(") Msg [      ]");
   // 0123456789012345
-  // (1) Msg [CCtch ]
+  // (1) Msg [      ]
   boolean StayInside=true;
   byte tmpMode=1;
   while (StayInside)
@@ -514,19 +601,30 @@ void ChooseFSOption(byte Switch)
       case 1: // left
         tmpMode-=1;
         if (tmpMode<1)
-          tmpMode=2;
+          tmpMode=4;
         break;
       case 2: // right
         tmpMode+=1;
-        if (tmpMode>2)
+        if (tmpMode>4)
           tmpMode=1;
         break;
       case 3: // enter
         EEPROM.write(Switch+30,(tmpMode));
-        if (tmpMode==1)
-          SetupFootSwitchPatch(Switch);
-        else
-          SetupFootSwitchCC(Switch);
+        switch (tmpMode)
+        {
+          case 1:
+            SetupFootSwitchPatch(Switch);
+            break;
+          case 2:
+            SetupFootSwitchCC(Switch);
+            break;
+          case 3:
+            SetupFootSwitchNoteOn(Switch);
+            break;
+          case 4:
+            SetupFootSwitchNoteOff(Switch);
+            break;
+        }
         break;
       case 4: // back
         StayInside=false;
@@ -542,10 +640,16 @@ void DisplaySwitchMode(byte num)
   switch (num)
   {
     case 1:
-      lcd.print("Patch");
+      lcd.print("Patch ");
       break;
     case 2:
-      lcd.print("CC   ");
+      lcd.print("CC    ");
+      break;
+    case 3:
+      lcd.print("NoteOn");
+      break;
+    case 4:
+      lcd.print("NoteOf");
       break;
   }
 }
@@ -649,4 +753,29 @@ int ReadFromMem(byte address)
   int b=EEPROM.read(address+1);
 
   return a*256+b;
+}
+
+
+void Initialize()
+{
+  for (byte Switch=0; Switch<10; Switch++)
+  {    
+    FS[Switch][0]=EEPROM.read(31+Switch);
+    FS[Switch][1]=EEPROM.read(41+Switch);    
+  }
+}
+
+void SendCommand(byte Switch)
+{
+  if (FS[Switch][0]==1)
+    MIDI.sendControlChange((FS[Switch][1]),127,MIDIChannel);
+  else
+    if (FS[Switch][0]==2)
+      MIDI.sendProgramChange((FS[Switch][1]),MIDIChannel);
+    else
+      if (FS[0][0]==3)
+        MIDI.sendNoteOn((FS[Switch][1]),127,MIDIChannel);
+      else
+        if (FS[0][0]==4)
+          MIDI.sendNoteOn((FS[Switch][1]),0,MIDIChannel);
 }
