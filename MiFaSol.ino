@@ -6,7 +6,7 @@
 //
 //         ©2014, Antonis Maglaras :: maglaras@gmail.com
 //                          MIDI Controller
-//                           Version 2.53b
+//                           Version 2.54b
 //
 //
 //
@@ -33,19 +33,24 @@
 //
 //
 // EEPROM:
+// 1 = MIDI Out Channel
+// 2 = MIDI In Channel
+// 3 - Backlight Timeout
 // 31-40 = Type of message for Footswitch-31 (1..4)
 // 41-50 = Value (0..127)
 
-#define Version " Version 2.53b  "
 
-#include <MIDI.h>
+#define Version " Version 2.54b  "
+
+#include <MIDI.h>                                     // http://sourceforge.net/projects/arduinomidilib/files/Releases/ - fortyseveneffects@gmail.com
 #include <EEPROM.h>
 #include <Wire.h> 
-#include <LiquidCrystal_I2C.h>
+#include <LiquidCrystal_I2C.h>                        // LiquidCrystal_I2C V2.0 - Mario H. / atmega@xs4all.nl
+                                                      // http://www.xs4all.nl/~hmario/arduino/LiquidCrystal_I2C/LiquidCrystal_I2C.zip 
 
-LiquidCrystal_I2C lcd(0x27,16,2);
+LiquidCrystal_I2C lcd(0x27,16,2);                     // 0x27 is the address of the I2C driver for the LCD Screen
 
-byte NoteChar[8] = { B00100, B00110, B00101, B00101, B01100, B11100, B11000, B00000 };
+byte NoteChar[8] = { B00100, B00110, B00101, B00101, B01100, B11100, B11000, B00000 };    // Custom character for displaying a music note
 
 #define  IO1     5
 #define  IO2     6
@@ -58,25 +63,26 @@ byte NoteChar[8] = { B00100, B00110, B00101, B00101, B01100, B11100, B11000, B00
 #define  IO9     9
 #define  EXP    A0
 
-volatile byte PreviousExpPedal = 0;
-volatile int MinExp = 0;
-volatile int MaxExp = 1024;
+volatile byte PreviousExpPedal = 0;                   // Expression Pedal previous reading
+volatile int MinExp = 0;                              // Expression Pedal Minimum reading
+volatile int MaxExp = 1024;                           // Expression Pedal Maximum reading
 
-volatile byte MIDIInChannel = 1;                      // MIDI Channel for RX
-volatile byte MIDIOutChannel = 17;                     // MIDI Channel for RX
+volatile byte MIDIInChannel = 1;                      // MIDI Channel for RX (1..16)
+volatile byte MIDIOutChannel = 17;                    // MIDI Channel for RX (1..16, 17=All Channels/OMNI)
 
-volatile byte BacklightTimeout = 100;
+volatile byte BacklightTimeout = 100;                 // Valid from 0..99 sec, 100 for Always On, 101 for Always Off.
 volatile boolean NoBacklight = false;
 volatile boolean AlwaysBacklight = false;
 
-volatile byte FootSwitch[10][2];                              // Array for storing settings for foot switches
+volatile byte FootSwitch[10][2];                      // Array for storing settings for foot switches
 
-long ExpTimeOutMillis = 0;
-long FootswitchtTimeOutMillis = 0;
-long BacklightTimeOutMillis = 0;
+long ExpTimeOutMillis = 0;                            //
+long FootswitchtTimeOutMillis = 0;                    // Storing millis for calculations
+long BacklightTimeOutMillis = 0;                      //
 
-// Main Menu Text
-char* MenuItems[7] = { "",
+#define LCDTimeOut  5000                              // Time to stay on LCD the pressed switch/exp. pedal value
+
+char* MenuItems[7] = { "",                            // Main Menu Text
                        "MIDI Out Channel", 
                        "MIDI In Channel ", 
                        "Set Footswitches", 
@@ -85,8 +91,7 @@ char* MenuItems[7] = { "",
                        "Factory Reset   "
                       };
 
-// Foot Switches Text
-char* FootSwitches[11] = { "",
+char* FootSwitches[11] = { "",                        // Foot Switches Text
                            "Set FootSwitch 1", 
                            "Set FootSwitch 2", 
                            "Set FootSwitch 3", 
@@ -98,6 +103,7 @@ char* FootSwitches[11] = { "",
                            "Set FootSwitch 9", 
                            "Set Expr. Pedal ", 
                          };
+
 
 
 
@@ -161,12 +167,12 @@ void loop()
     LCDNumber(1,13,PreviousExpPedal);
     MIDI.sendControlChange(FootSwitch[10][0],PreviousExpPedal,MIDIOutChannel);
   }  
-  if (millis()-ExpTimeOutMillis>3000)
+  if (millis()-ExpTimeOutMillis>LCDTimeOut)
   {
     lcd.setCursor(9,1);
     lcd.print("       ");
   }
-  if (millis()-FootswitchtTimeOutMillis>3000)
+  if (millis()-FootswitchtTimeOutMillis>LCDTimeOut)
   {
     lcd.setCursor(0,1);
     lcd.print("       ");
