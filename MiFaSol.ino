@@ -303,8 +303,8 @@ void DisplayCommandType(byte type)
 }
 
 
-// --- Display Number as 000 at specific position --------------------------------------------------------------------------------
 
+// --- Display Number as 000 at specific position --------------------------------------------------------------------------------
 void DisplayNumber(byte line, byte pos, byte number)
 {
   lcd.setCursor(pos,line);
@@ -317,9 +317,7 @@ void DisplayNumber(byte line, byte pos, byte number)
 
 
 
-
 // --- Main Menu Procedure -------------------------------------------------------------------------------------------------------
-
 void MainMenu()
 {  
   lcd.clear();
@@ -383,7 +381,6 @@ void MainMenu()
 
 
 // --- Setup Backlight -----------------------------------------------------------------------------------------------------------
-
 void SetupBacklight()
 {
   lcd.setCursor(0,1);
@@ -445,7 +442,6 @@ void SetupBacklight()
 
 
 // --- Show Backlight Mode -------------------------------------------------------------------------------------------------------
-
 void ShowBacklight(byte tmpBacklight)
 {
   lcd.setCursor(10,1);
@@ -466,7 +462,6 @@ void ShowBacklight(byte tmpBacklight)
 
 
 // --- Setup MIDI Channel --------------------------------------------------------------------------------------------------------
-
 void SetupMIDIChannel(byte Mode)
 {
   lcd.setCursor(0,1);
@@ -540,8 +535,8 @@ void SetupMIDIChannel(byte Mode)
 }
 
 
-// --- Show MIDI Channel ---------------------------------------------------------------------------------------------------------
 
+// --- Show MIDI Channel ---------------------------------------------------------------------------------------------------------
 void ShowMIDIChannel(byte Channel)
 {
   lcd.setCursor(13,1);
@@ -557,8 +552,8 @@ void ShowMIDIChannel(byte Channel)
 }
 
 
-// --- Factory Reset / Initialize to Default Settings ----------------------------------------------------------------------------
 
+// --- Factory Reset / Initialize to Default Settings ----------------------------------------------------------------------------
 void FactoryReset()
 {
   WriteToMem(11,0);
@@ -586,7 +581,6 @@ void FactoryReset()
 
 
 // --- Setup Footswitch Main Menu ------------------------------------------------------------------------------------------------
-
 void FootSwitchMenu()
 {
   byte Item=1;
@@ -622,8 +616,8 @@ void FootSwitchMenu()
 }
 
 
-// --- Setup Footswitch CC Message -----------------------------------------------------------------------------------------------
 
+// --- Setup Footswitch CC Message -----------------------------------------------------------------------------------------------
 void SetupFootSwitchCC(byte Switch)
 {
   lcd.setCursor(0,1);
@@ -676,7 +670,6 @@ void SetupFootSwitchCC(byte Switch)
 
 
 // --- Setup Footswitch Patch ----------------------------------------------------------------------------------------------------
-
 void SetupFootSwitchPatch(byte Switch)
 {
   lcd.setCursor(0,1);
@@ -721,9 +714,7 @@ void SetupFootSwitchPatch(byte Switch)
 
 
 
-
 // --- Setup Footswitch Note On/Off Mode -----------------------------------------------------------------------------------------
-
 void SetupFootSwitchNote(byte Switch, byte Mode)
 {
   lcd.setCursor(0,1);
@@ -779,7 +770,6 @@ void SetupFootSwitchNote(byte Switch, byte Mode)
 
 
 // --- Choose Footswitch Mode ----------------------------------------------------------------------------------------------------
-
 void ChooseFSOption(byte Switch)
 {
   lcd.setCursor(0,1);
@@ -834,6 +824,7 @@ void ChooseFSOption(byte Switch)
     }
   }    
 }
+
 
 
 // --- Display to Screen Mode ----------------------------------------------------------------------------------------------------
@@ -948,7 +939,6 @@ void ClearScreen()
 
 // --- Write Integers to EEPROM procedure -------------------------------------------------------------------------------------------------------------
 // Write numbers (0-65535) to EEPROM (using 2 bytes).
-
 void WriteToMem(byte address, int number)
 {
   int a = number/256;
@@ -968,6 +958,7 @@ int ReadFromMem(byte address)
 
   return a*256+b;
 }
+
 
 
 // --- Initialize Settings / Read from EEPROM ---------------------------------------------------------------------------------------------------------
@@ -1038,6 +1029,9 @@ void SoftReset()
   asm volatile ("  jmp 0");
 }
 
+
+
+// --- Check for Backlight -------------------------------------------------------------------------------------------------------
 void BacklightCheck()
 {
   if (NoBacklight)
@@ -1050,6 +1044,7 @@ void BacklightCheck()
     BacklightTimeOutMillis=millis();
   }    
 }
+
 
 
 // --- Process MIDI Input Messages -----------------------------------------------------------------------------------------------
