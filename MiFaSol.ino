@@ -40,9 +40,8 @@
 // 41-50 = Value (0..127)
 
 
-#define Version " Version 2.57b  "
+#define Version " Version 3.01b  "
 
-#include <MIDI.h>                                     // http://sourceforge.net/projects/arduinomidilib/files/Releases/ - fortyseveneffects@gmail.com
 #include <EEPROM.h>
 #include <Wire.h> 
 #include <LiquidCrystal_I2C.h>                        // LiquidCrystal_I2C V2.0 - Mario H. / atmega@xs4all.nl
@@ -94,6 +93,7 @@ const char* MenuItems[6] = { "MIDI Channel    ",
 // --- Setup procedure --------------------------------------------------------------------------------------------------------------------------------
 void setup()
 {
+  Serial.begin(31250);
   Initialize();
   lcd.init();
   lcd.createChar(1,NoteChar);
@@ -106,7 +106,6 @@ void setup()
   pinMode(IO7,INPUT_PULLUP);
   pinMode(IO8,INPUT_PULLUP);
   pinMode(IO9,INPUT_PULLUP);  
-  MIDI.begin(MIDIChannel);
   lcd.backlight();
   lcd.clear();
   lcd.setCursor(0,0);
@@ -155,20 +154,25 @@ void loop()
     switch (FootSwitch[10][0])
     {
       case 1:
-        MIDI.sendControlChange(FootSwitch[10][1],PreviousExpPedal,MIDIChannel);    
+        MIDICC(FootSwitch[10][1],PreviousExpPedal);
         break;
       case 2:
-        MIDI.sendProgramChange(PreviousExpPedal,MIDIChannel);
+        MIDIProgramChange(PreviousExpPedal);
         break;
       case 3:
-        MIDI.sendNoteOn(FootSwitch[10][1],PreviousExpPedal,MIDIChannel);      
+        MIDINote(PreviousExpPedal,127,1);
         break;
       case 4:
-        MIDI.sendNoteOn(FootSwitch[10][1],PreviousExpPedal,MIDIChannel);      
+        MIDINote(PreviousExpPedal,0,2);
         break;
     }
     ExpTimeOutMillis=millis();
   }    
+  
+  if (MIDIThru)
+    if (Serial.available())
+      Serial.write(Serial.read());
+    
     
   if (millis()-ExpTimeOutMillis>LCDTimeOut)
   {
@@ -412,12 +416,10 @@ void SetupMIDIThru()
         if (MIDIThru)
         {
           EEPROM.write(5,1);  // write to eeprom
-          MIDI.turnThruOn();
         }
         else
         {
           EEPROM.write(5,0);
-          MIDI.turnThruOff();
         }
         StayInside=false;        
         break;
@@ -581,7 +583,7 @@ void FactoryReset()
         for (byte tSwitch=1; tSwitch<=9; tSwitch++)
         {    
           EEPROM.write(30+tSwitch,2);
-          EEPROM.write(40+tSwitch,tSwitch);
+          EEPROM.write(40+tSwitch,tSwitch-1);
         }
         EEPROM.write(40,1);
         EEPROM.write(50,7);
@@ -893,12 +895,10 @@ void Initialize()
   if (EEPROM.read(5)==1)
   {
     MIDIThru = true;
-    MIDI.turnThruOn();
   }
   else
   {
     MIDIThru = false;
-    MIDI.turnThruOff();
   }
   MinExp=ReadFromMem(11);
   MaxExp=ReadFromMem(13);
@@ -920,16 +920,16 @@ void SendCommand(byte Switch)
   switch (FootSwitch[Switch-1][0])
   {
     case 1:
-      MIDI.sendControlChange((FootSwitch[Switch-1][1]),127,MIDIChannel);
+      MIDICC(FootSwitch[Switch-1][1],127);
       break;
     case 2:
-      MIDI.sendProgramChange((FootSwitch[Switch-1][1]),MIDIChannel);
+      MIDIProgramChange(FootSwitch[Switch-1][1]);
       break;
     case 3:
-      MIDI.sendNoteOn((FootSwitch[Switch-1][1]),127,MIDIChannel);
+      MIDINote(FootSwitch[Switch-1][1],127,1);
       break;
     case 4:
-      MIDI.sendNoteOn((FootSwitch[Switch-1][1]),0,MIDIChannel);
+      MIDINote(FootSwitch[Switch-1][1],0,2);
       break;
   }
 }
@@ -957,4 +957,46 @@ void BacklightCheck()
       lcd.backlight();
       BacklightTimeOutMillis=millis();
     }
+}
+
+
+
+
+
+// Send CC
+void MIDICC(byte CCNumber, byte Value)
+{
+  // 0xB0 = Control Change / Channel 0.
+  // 0xAF + X = Control Change @ Channel X
+  Serial.write(0xB0 + (MIDIChannel - 1));
+  // or
+  // Serial.write(0xB0 | (MidiChannel & 0x0F));
+  Serial.write(CCNumber);
+  Serial.write(Value);
+}
+
+
+// Send Program Change
+void MIDIProgramChange(byte Patch)
+{
+  Serial.write(0xC0 + (MIDIChannel - 1));
+  Serial.write(Patch);
+}
+
+
+// Send a Note
+void MIDINote(byte Note, byte Velocity, byte Mode)
+{
+  if (Mode==1)
+  {
+    Serial.write(0x9 + (MIDIChannel - 1));
+    Serial.write(Note);
+    Serial.write(Velocity);
+  }
+  else
+  {
+    Serial.write(0x8 + (MIDIChannel - 1));
+    Serial.write(Note);
+    Serial.write(Velocity);
+  }
 }
