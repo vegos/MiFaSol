@@ -6,7 +6,7 @@
 //
 //         ©2014, Antonis Maglaras :: maglaras@gmail.com
 //                          MIDI Controller
-//                           Version 3.01b
+//                           Version 3.02b
 //
 //
 //
@@ -40,7 +40,7 @@
 // 41-50 = Value (0..127)
 
 
-#define Version " Version 3.01b  "
+#define Version " Version 3.02b  "
 
 #include <EEPROM.h>
 #include <Wire.h> 
@@ -51,16 +51,18 @@ LiquidCrystal_I2C lcd(0x27,16,2);                     // 0x27 is the address of 
 
 byte NoteChar[8] = { B00100, B00110, B00101, B00101, B01100, B11100, B11000, B00000 };    // Custom character for displaying a music note
 
-#define  IO1     5
-#define  IO2     6
-#define  IO3     7
-#define  IO4     8
-#define  IO5    13
-#define  IO6    12
-#define  IO7    11
-#define  IO8    10
-#define  IO9     9
-#define  EXP    A0
+#define  IO1        5
+#define  IO2        6
+#define  IO3        7
+#define  IO4        8
+#define  IO5       13
+#define  IO6       12
+#define  IO7       11
+#define  IO8       10
+#define  IO9        9
+#define  EXP       A0
+
+#define  TUNERCC  127
 
 volatile byte PreviousExpPedal = 0;                   // Expression Pedal previous reading
 volatile int MinExp = 0;                              // Expression Pedal Minimum reading
@@ -73,6 +75,8 @@ volatile byte BacklightTimeOut = 100;                 // Valid from 0..99 sec, 1
 volatile byte FootSwitch[10][2];                      // Array for storing settings for foot switches
 
 volatile boolean MIDIThru = true;                     // MIDI Thru mode: enabled/disabled
+
+volatile byte Patch = 0;
 
 long ExpTimeOutMillis = 0;                            //
 long FootswitchtTimeOutMillis = 0;                    // Storing millis for calculations
@@ -193,9 +197,81 @@ void loop()
 
 
 
+
+
+
+
+
+
+void CheckMenuTuner()
+{
+  long tmpmillis=millis();
+  while (true)
+  {
+    if ((millis()-tmpmillis>3000) && (digitalRead(IO1)==LOW))
+    {
+      EnterTuner();
+      while (digitalRead(IO1)==LOW)
+        delay(1);
+      return;      
+    }
+    if (digitalRead(IO1)==HIGH)
+    {
+      MainMenu();
+      return;
+    }
+  }
+}
+
+
+void EnterTuner()
+{
+  MIDICC(TUNERCC,127);
+}
+
+
+
 // --- Detect and process footswitches/keypresses ----------------------------------------------------------------------------
 byte Keypress()
 {
+  
+  if (digitalRead(IO1)==LOW)
+  {
+    BacklightCheck();         
+    CheckMenuTuner();
+    return 0;
+  }
+  
+  if ((digitalRead(IO2)==LOW) && (digitalRead(IO3)==LOW))
+  {
+    Patch-=1;
+    if (Patch<1)
+      Patch=128;
+    BacklightCheck();      
+    MIDIProgramChange(Patch);
+    DisplayCommandType(2);
+    DisplayNumber(0,4,Patch,3);      
+    while (digitalRead(IO3)==LOW)
+      delay(1);
+    return 0;
+  } 
+  else
+  if ((digitalRead(IO2)==LOW) && (digitalRead(IO4)==LOW))
+  {
+    Patch+=1;
+    if (Patch>128)
+      Patch=1;
+    BacklightCheck();  
+    MIDIProgramChange(Patch);    
+    DisplayCommandType(2);
+    DisplayNumber(0,4,Patch,3);  
+    while (digitalRead(IO4)==LOW)
+      delay(1);
+    
+    return 0;
+  }  
+  else
+/*  
   if ((digitalRead(IO1)==LOW) && (digitalRead(IO2)==LOW))
   {
     BacklightCheck();
@@ -211,19 +287,20 @@ byte Keypress()
     return 1;
   }
   else
-    if (digitalRead(IO2)==LOW)
+*/  
+    if ((digitalRead(IO2)==LOW) && (digitalRead(IO3)==HIGH) && (digitalRead(IO4)==HIGH))
     {
       BacklightCheck();
       return 2;
     }
     else
-      if (digitalRead(IO3)==LOW)
+      if ((digitalRead(IO3)==LOW) && (digitalRead(IO2)==HIGH))
       {
         BacklightCheck();
         return 3;
       }
       else
-        if (digitalRead(IO4)==LOW)
+        if ((digitalRead(IO4)==LOW) && (digitalRead(IO2)==HIGH))
         {
           BacklightCheck();
           return 4;
