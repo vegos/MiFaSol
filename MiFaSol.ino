@@ -6,7 +6,7 @@
 //
 //         ©2014, Antonis Maglaras :: maglaras@gmail.com
 //                          MIDI Controller
-//                           Version 3.02b
+//                           Version 3.03b
 //
 //
 //
@@ -40,12 +40,14 @@
 // 41-50 = Value (0..127)
 
 
-#define Version " Version 3.02b  "
+#define Version " Version 3.03b  "
 
 #include <EEPROM.h>
 #include <Wire.h> 
 #include <LiquidCrystal_I2C.h>                        // LiquidCrystal_I2C V2.0 - Mario H. / atmega@xs4all.nl
                                                       // http://www.xs4all.nl/~hmario/arduino/LiquidCrystal_I2C/LiquidCrystal_I2C.zip 
+#include <MemoryFree.h>                               // http://playground.arduino.cc/Code/AvailableMemory
+                                                      
 
 LiquidCrystal_I2C lcd(0x27,16,2);                     // 0x27 is the address of the I2C driver for the LCD Screen
 
@@ -62,7 +64,7 @@ byte NoteChar[8] = { B00100, B00110, B00101, B00101, B01100, B11100, B11000, B00
 #define  IO9        9
 #define  EXP       A0
 
-#define  TUNERCC  127
+//#define  TUNERCC  127
 
 volatile byte PreviousExpPedal = 0;                   // Expression Pedal previous reading
 volatile int MinExp = 0;                              // Expression Pedal Minimum reading
@@ -70,7 +72,7 @@ volatile int MaxExp = 1024;                           // Expression Pedal Maximu
 
 volatile byte MIDIChannel = 1;                        // MIDI Channel for RX (1..16)
 
-volatile byte BacklightTimeOut = 100;                 // Valid from 0..99 sec, 100 for Always On, 101 for Always Off.
+volatile byte BacklightTimeOut = 15;                  // Valid from 0..99 sec, 100 for Always On, 101 for Always Off.
 
 volatile byte FootSwitch[10][2];                      // Array for storing settings for foot switches
 
@@ -82,17 +84,19 @@ long ExpTimeOutMillis = 0;                            //
 long FootswitchtTimeOutMillis = 0;                    // Storing millis for calculations
 long BacklightTimeOutMillis = 0;                      //
 
-#define LCDTimeOut  5000                              // Time to stay on LCD the pressed switch/exp. pedal value
+//#define LCDTimeOut  5000                              // Time to stay on LCD the pressed switch/exp. pedal value
 
-const char* MenuItems[6] = { "MIDI Channel    ", 
+const char* MenuItems[7] = { "MIDI Channel    ", 
                              "MIDI Thru Mode  ",
                              "Set Footswitches", 
                              "Calibrate Expr. ",
                              "Backlight Time  ",
-                             "Factory Reset   "
+                             "Factory Reset   ",
+                             "Version/Memory  "
                            };
 
-
+byte Key = 0;
+byte tmp = 0;
 
 // --- Setup procedure --------------------------------------------------------------------------------------------------------------------------------
 void setup()
@@ -101,6 +105,7 @@ void setup()
   Initialize();
   lcd.init();
   lcd.createChar(1,NoteChar);
+  BacklightCheck();  
   pinMode(IO1,INPUT_PULLUP);
   pinMode(IO2,INPUT_PULLUP);
   pinMode(IO3,INPUT_PULLUP);
@@ -110,7 +115,6 @@ void setup()
   pinMode(IO7,INPUT_PULLUP);
   pinMode(IO8,INPUT_PULLUP);
   pinMode(IO9,INPUT_PULLUP);  
-  lcd.backlight();
   lcd.clear();
   lcd.setCursor(0,0);
   lcd.print("    MiFaSol     ");
@@ -136,15 +140,15 @@ void setup()
 // --- Main procedure ---------------------------------------------------------------------------------------------------------
 void loop()
 {
-  byte Key = Keypress();
-  if (Key != 0)
+  byte tKey = Keypress();
+  if (tKey != 0)
   {
-    SendCommand(Key);                               // SEND Command based on keypress    
+    SendCommand(tKey);                               // SEND Command based on keypress    
     lcd.setCursor(0,1);
     lcd.print("FS ");
-    lcd.print(Key);
+    lcd.print(tKey);
     FootswitchtTimeOutMillis=millis();
-    while (Keypress()==Key)
+    while (Keypress()==tKey)
       delay(1);
     lcd.setCursor(0,0);
     lcd.print("Standby");
@@ -175,15 +179,16 @@ void loop()
   
   if (MIDIThru)
     if (Serial.available())
-      Serial.write(Serial.read());
+      CheckMIDI(); // Read midi
+//      Serial.write(Serial.read()); // midi thru
     
     
-  if (millis()-ExpTimeOutMillis>LCDTimeOut)
+  if (millis()-ExpTimeOutMillis>(BacklightTimeOut*1000))
   {
     lcd.setCursor(9,1);
     lcd.print("       ");
   }
-  if (millis()-FootswitchtTimeOutMillis>LCDTimeOut)
+  if (millis()-FootswitchtTimeOutMillis>(BacklightTimeOut*1000))
   {
     lcd.setCursor(0,1);
     lcd.print("       ");
@@ -208,14 +213,17 @@ void CheckMenuTuner()
   long tmpmillis=millis();
   while (true)
   {
-    if ((millis()-tmpmillis>3000) && (digitalRead(IO1)==LOW))
+    if ((millis()-tmpmillis>2000) && (digitalRead(IO9)==LOW))
     {
-      EnterTuner();
-      while (digitalRead(IO1)==LOW)
+      MIDICC(FootSwitch[0][1],127);
+      lcd.setCursor(0,0);
+      lcd.print("Tuner  ");
+      while (digitalRead(IO9)==LOW)
         delay(1);
+      ClearScreen();
       return;      
     }
-    if (digitalRead(IO1)==HIGH)
+    if (digitalRead(IO9)==HIGH)
     {
       MainMenu();
       return;
@@ -224,10 +232,6 @@ void CheckMenuTuner()
 }
 
 
-void EnterTuner()
-{
-  MIDICC(TUNERCC,127);
-}
 
 
 
@@ -235,7 +239,7 @@ void EnterTuner()
 byte Keypress()
 {
   
-  if (digitalRead(IO1)==LOW)
+  if (digitalRead(IO9)==LOW)
   {
     BacklightCheck();         
     CheckMenuTuner();
@@ -248,9 +252,9 @@ byte Keypress()
     if (Patch<1)
       Patch=128;
     BacklightCheck();      
-    MIDIProgramChange(Patch);
+    MIDIProgramChange(Patch-1);
     DisplayCommandType(2);
-    DisplayNumber(0,4,Patch,3);      
+    DisplayNumber(0,4,Patch-1,3);      
     while (digitalRead(IO3)==LOW)
       delay(1);
     return 0;
@@ -262,17 +266,17 @@ byte Keypress()
     if (Patch>128)
       Patch=1;
     BacklightCheck();  
-    MIDIProgramChange(Patch);    
+    MIDIProgramChange(Patch-1);    
     DisplayCommandType(2);
-    DisplayNumber(0,4,Patch,3);  
+    DisplayNumber(0,4,Patch-1,3);  
     while (digitalRead(IO4)==LOW)
       delay(1);
     
     return 0;
   }  
   else
-/*  
-  if ((digitalRead(IO1)==LOW) && (digitalRead(IO2)==LOW))
+/*
+if ((digitalRead(IO1)==LOW) && (digitalRead(IO2)==LOW))
   {
     BacklightCheck();
     while ((digitalRead(IO1)==LOW) && (digitalRead(IO2)==LOW))    // Delay while switches are still pressed
@@ -281,13 +285,13 @@ byte Keypress()
     MainMenu();
     return 0;
   }    
+*/
   if (digitalRead(IO1)==LOW)
   {
     BacklightCheck();
     return 1;
   }
   else
-*/  
     if ((digitalRead(IO2)==LOW) && (digitalRead(IO3)==HIGH) && (digitalRead(IO4)==HIGH))
     {
       BacklightCheck();
@@ -330,12 +334,12 @@ byte Keypress()
                   return 8;
                 }
                 else
-                  if (digitalRead(IO9)==LOW)
-                  {
-                    BacklightCheck();
-                    return 9;
-                  }
-                  else
+//                  if (digitalRead(IO9)==LOW)
+//                  {
+//                    BacklightCheck();
+//                    return 9;
+//                  }
+//                  else
                     return 0;
 }
   
@@ -344,7 +348,7 @@ byte Keypress()
 // --- Get the Expr. pedal position --------------------------------------------------------------------------------------------
 byte ExpPedal()
 {
-  byte tmp = map(analogRead(EXP),MinExp,MaxExp,0,127);  
+  tmp = map(analogRead(EXP),MinExp,MaxExp,0,127);  
   if (tmp>127)
     tmp=0;
   return tmp;
@@ -411,7 +415,7 @@ void MainMenu()
     lcd.print("Setup Menu      ");
     lcd.setCursor(0,1);
     lcd.print(MenuItems[Menu-1]);
-    byte tmp=Keypress();
+    tmp=Keypress();
     if (tmp!=0)
       delay(250);
     switch (tmp)
@@ -424,11 +428,11 @@ void MainMenu()
       case 1:  // left
         Menu-=1;
         if (Menu<1)
-          Menu=6;
+          Menu=7;
           break;
       case 2:  // right
         Menu+=1;
-        if (Menu>6)
+        if (Menu>7)
           Menu=1;
           break;
       case 3:  // enter
@@ -451,6 +455,9 @@ void MainMenu()
             break;
           case 6: // factory reset
             FactoryReset();
+            break;
+          case 7:
+            ShowVersion();
             break;
         }
 //        StayInside=false;
@@ -477,7 +484,7 @@ void SetupMIDIThru()
   while (StayInside)
   {
     ShowMIDIThru(tmpMIDIThru);    
-    byte tmp=Keypress();
+    tmp=Keypress();
     if (tmp!=0)
       delay(250);
     switch (tmp)
@@ -536,7 +543,7 @@ void SetupBacklight()
   while (StayInside)
   {
     ShowBacklight(tmpBacklight);    
-    byte tmp=Keypress();
+    tmp=Keypress();
     if (tmp!=0)
       delay(150);
     switch (tmp)
@@ -553,18 +560,15 @@ void SetupBacklight()
         break;
       case 3: // enter
         BacklightTimeOut=tmpBacklight;
-        EEPROM.write(3,BacklightTimeOut);  // write to eeprom
-        if (BacklightTimeOut==100)
-          lcd.backlight();
+        EEPROM.write(4,BacklightTimeOut);  // write to eeprom
+        if (BacklightTimeOut==101)
+          lcd.noBacklight();
         else
-          if (BacklightTimeOut==101)
-            lcd.noBacklight();
-          else
-          {
-            lcd.backlight();
-            BacklightTimeOutMillis=millis();
-          }
-          StayInside=false;        
+        {
+          lcd.backlight();
+          BacklightTimeOutMillis=millis();
+        }
+        StayInside=false;        
         break;
       case 4: // back
         StayInside=false;
@@ -609,7 +613,7 @@ void SetupMIDIChannel()
   while (StayInside)
   {
     DisplayNumber(1,13,tmpChannel,2);
-    byte tmp=Keypress();
+    tmp=Keypress();
     if (tmp!=0)
       delay(250);
     switch (tmp)
@@ -648,14 +652,14 @@ void FactoryReset()
   boolean StayInside=true;
   while (StayInside)
   {
-    byte tmp=Keypress();
+    tmp=Keypress();
     switch (tmp)
     {
       case 3: // enter
         WriteToMem(11,0);
         WriteToMem(13,1024);
         EEPROM.write(1,1);
-        EEPROM.write(3,30);
+        EEPROM.write(4,15);
         EEPROM.write(5,1);
         for (byte tSwitch=1; tSwitch<=9; tSwitch++)
         {    
@@ -699,7 +703,7 @@ void FootSwitchMenu()
     }
     else         
       lcd.print("Expr. Pedal     ");
-    byte tmp=Keypress();
+    tmp=Keypress();
     if (tmp!=0)
       delay(250);
     switch (tmp)
@@ -780,7 +784,7 @@ void SetupFootSwitchAll(byte Switch, byte Mode)
   while (StayInside)
   {
     DisplayNumber(1,12,tmpSetting-1,3);
-    byte tmp=Keypress();
+    tmp=Keypress();
     if (tmp!=0)
       delay(150);
     switch (tmp)
@@ -832,7 +836,7 @@ void ChooseFSOption(byte Switch)
   {
     lcd.setCursor(10,1);
     DisplayMode(tmpMode);
-    byte tmp=Keypress();
+    tmp=Keypress();
     if (tmp!=0)
       delay(250);
     switch (tmp)
@@ -890,7 +894,7 @@ void CalibratePedal()
   {
     tmpMinMax=analogRead(EXP);
     DisplayNumber(1,11,tmpMinMax,4);
-    byte tmp=Keypress();
+    tmp=Keypress();
     switch (tmp)
     {
       case 3: // enter
@@ -916,7 +920,7 @@ void CalibratePedal()
   {
     tmpMinMax=analogRead(EXP);
     DisplayNumber(1,11,tmpMinMax,4);
-    byte tmp=Keypress();
+    tmp=Keypress();
     switch (tmp)
     {
       case 3: // enter
@@ -967,8 +971,8 @@ int ReadFromMem(byte Address)
 // --- Initialize Settings / Read from EEPROM ---------------------------------------------------------------------------------------
 void Initialize()
 {
+  BacklightTimeOut=EEPROM.read(4);  
   MIDIChannel=EEPROM.read(1);
-  BacklightTimeOut=EEPROM.read(3);  
   if (EEPROM.read(5)==1)
   {
     MIDIThru = true;
@@ -1027,7 +1031,7 @@ void BacklightCheck()
   if (BacklightTimeOut==101)
     lcd.noBacklight();
   else
-    if (BacklightTimeOut=100)
+    if (BacklightTimeOut==100)
       lcd.backlight();
     else
     {
@@ -1076,4 +1080,95 @@ void MIDINote(byte Note, byte Velocity, byte Mode)
     Serial.write(Note);
     Serial.write(Velocity);
   }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+void CheckMIDI()
+{
+  byte StatusByte;
+  byte DataByte1;
+  byte DataByte2;
+  if (Serial.available() >= 3)
+  {
+    StatusByte = Serial.read();//read first byte
+    DataByte1 = Serial.read();//read next byte
+    DataByte2 = Serial.read();//read final byte
+    ProcessInput(StatusByte,DataByte1,DataByte2,3);
+  }
+  else
+    if (Serial.available() >= 2)
+    {
+      StatusByte = Serial.read();
+      DataByte1 = Serial.read();
+      ProcessInput(StatusByte,DataByte1,DataByte2,2);
+    }
+}
+
+void ProcessInput(byte StatusByte, byte DataByte1, byte DataByte2, byte Bytes)
+{
+  switch (Bytes)
+  {
+    case 2:
+      if ((StatusByte >= 0xC0) && (StatusByte <= 0xCF))
+      {
+        if ((StatusByte - 0XC0) == (MIDIChannel -1))
+        {
+          Patch = DataByte1;
+          lcd.clear();
+          lcd.print("PATCH ");
+          lcd.print(Patch);
+          delay(3000);
+        }
+      }
+      else
+      {
+        lcd.clear();
+        lcd.print("Status: ");
+        lcd.print(StatusByte);
+        lcd.setCursor(0,1);
+        lcd.print("Data: ");
+        lcd.print(DataByte1);
+        delay(3000);
+      }
+      break;
+    case 3:
+      lcd.clear();
+      lcd.print("Status: ");
+      lcd.print(StatusByte);
+      lcd.setCursor(0,1);
+      lcd.print("1: ");
+      lcd.print(DataByte1);
+      lcd.print(" - 2: ");
+      lcd.print(DataByte2);
+      delay(3000);
+      break;
+  }
+}
+
+
+void ShowVersion()
+{
+  lcd.clear();
+  lcd.print(Version);
+  lcd.setCursor(1,1);
+  lcd.print(freeMemory());
+  lcd.print(" bytes free");
+  while (Keypress()!=4)
+    delay(1);
+  while (Keypress()==4)
+    delay(1);
 }
