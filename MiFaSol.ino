@@ -1,17 +1,17 @@
-//                  __  ____ ______      _____       __
-//                 /  |/  (_) ____/___ _/ ___/____  / /
-//                / /|_/ / / /_  / __ `/\__ \/ __ \/ / 
-//               / /  / / / __/ / /_/ /___/ / /_/ / /  
-//              /_/  /_/_/_/    \__,_//____/\____/_/ 
+// -------------------------------------------------------------------------------------------------------------------------------
 //
-//         ©2014, Antonis Maglaras :: maglaras@gmail.com
-//                          MIDI Controller
-//                           Version 3.03b
+//                  __  ____ ______      _____       __               |  This project started as a MIDI Foot Controller for
+//                 /  |/  (_) ____/___ _/ ___/____  / /               |  my MIDI-enabled effects.
+//                / /|_/ / / /_  / __ `/\__ \/ __ \/ /                |
+//               / /  / / / __/ / /_/ /___/ / /_/ / /                 |  It's build on a custom PCB (contact me if you want one)
+//              /_/  /_/_/_/    \__,_//____/\____/_/                  |  that's a simple Arduino-compatible board, based on an
+//                                                                    |  ATmega328.
+//          ©2014, Antonis Maglaras :: maglaras@gmail.com             |
+//                         MIDI Controller                            |  More info: http://www.facebook.com/mifasolproject
+//                    Version is .. still beta :)                     |  Code: http://github.com/vegos/MiFaSol
 //
 //
-//
-// ------- Some Documentation ---------------------------------------------------------------
-//
+// ------- Some Documentation ----------------------------------------------------------------------------------------------------
 //
 // EEPROM Memory & Settings
 // ------------------------
@@ -31,63 +31,62 @@
 // - Value can be:
 //   0..127
 //
+// - Note On sends a note with velocity 127.
+// - Note Off sends a note with velocity 0.
+// - Control Change sends fixed value of 127 (or variable for expression pedal).
+// - MIDI In mode decodes incoming MIDI Messages (Program Change only).
 //
 // EEPROM:
 // 1 = MIDI Channel
-// 3 - Backlight Timeout
-// 5 - MIDI Thru M
+// 4 - Backlight Timeout
+// 5 - MIDI In Mode
 // 31-40 = Type of message for Footswitch-31 (1..4)
 // 41-50 = Value (0..127)
+//
 
 
-#define Version " Version 3.03b  "
+#define Version " Version 3.05b  "                   // Current Version
 
-#include <EEPROM.h>
+#include <EEPROM.h>                                  
 #include <Wire.h> 
-#include <LiquidCrystal_I2C.h>                        // LiquidCrystal_I2C V2.0 - Mario H. / atmega@xs4all.nl
-                                                      // http://www.xs4all.nl/~hmario/arduino/LiquidCrystal_I2C/LiquidCrystal_I2C.zip 
-#include <MemoryFree.h>                               // http://playground.arduino.cc/Code/AvailableMemory
+#include <LiquidCrystal_I2C.h>                       // LiquidCrystal_I2C V2.0 - Mario H. / atmega@xs4all.nl
+                                                     // http://www.xs4all.nl/~hmario/arduino/LiquidCrystal_I2C/LiquidCrystal_I2C.zip 
+#include <MemoryFree.h>                              // http://playground.arduino.cc/Code/AvailableMemory
                                                       
 
-LiquidCrystal_I2C lcd(0x27,16,2);                     // 0x27 is the address of the I2C driver for the LCD Screen
+LiquidCrystal_I2C lcd(0x27,16,2);                    // 0x27 is the address of the I2C driver for the LCD Screen
 
 byte NoteChar[8] = { B00100, B00110, B00101, B00101, B01100, B11100, B11000, B00000 };    // Custom character for displaying a music note
 
-#define  IO1        5
-#define  IO2        6
-#define  IO3        7
-#define  IO4        8
-#define  IO5       13
-#define  IO6       12
-#define  IO7       11
-#define  IO8       10
-#define  IO9        9
-#define  EXP       A0
+#define  IO1        5                                // Pin for Switch 1 -- Mandatory on my PCB
+#define  IO2        6                                // Pin for Switch 2 -- Mandatory on my PCB
+#define  IO3        7                                // Pin for Switch 3 -- Mandatory on my PCB
+#define  IO4        8                                // Pin for Switch 4 -- Mandatory on my PCB
+#define  IO5       13                                // Pin for Switch 5 -- Mandatory on my PCB
+#define  IO6       12                                // Pin for Switch 6 -- Mandatory on my PCB
+#define  IO7       11                                // Pin for Switch 7 -- Mandatory on my PCB
+#define  IO8       10                                // Pin for Switch 8 -- Mandatory on my PCB
+#define  IO9        9                                // Pin for Switch 9 -- Mandatory on my PCB
+#define  EXP       A0                                // Pin for Expr. Pedal -- Mandatory on my PCB
 
-//#define  TUNERCC  127
+volatile byte PreviousExpPedal = 0;                  // Expression Pedal previous reading
+volatile int MinExp = 0;                             // Expression Pedal Minimum reading
+volatile int MaxExp = 1024;                          // Expression Pedal Maximum reading
 
-volatile byte PreviousExpPedal = 0;                   // Expression Pedal previous reading
-volatile int MinExp = 0;                              // Expression Pedal Minimum reading
-volatile int MaxExp = 1024;                           // Expression Pedal Maximum reading
+volatile byte MIDIChannel = 1;                       // MIDI Out Channel (1..16)
+volatile byte BacklightTimeOut = 15;                 // Valid from 0..99 sec, 100 for Always On, 101 for Always Off.
+volatile byte FootSwitch[10][2];                     // Array for storing settings for foot switches
+volatile boolean MIDIInMode = true;                  // MIDI Thru mode: enabled/disabled
+volatile byte Patch = 0;                             // Current patch
 
-volatile byte MIDIChannel = 1;                        // MIDI Channel for RX (1..16)
+long ExpTimeOutMillis = 0;                           //
+long FootswitchtTimeOutMillis = 0;                   // Storing millis for calculations
+long BacklightTimeOutMillis = 0;                     //
 
-volatile byte BacklightTimeOut = 15;                  // Valid from 0..99 sec, 100 for Always On, 101 for Always Off.
+#define LCDTimeOut  2500                             // Time to stay on LCD the pressed switch/exp. pedal value
 
-volatile byte FootSwitch[10][2];                      // Array for storing settings for foot switches
-
-volatile boolean MIDIThru = true;                     // MIDI Thru mode: enabled/disabled
-
-volatile byte Patch = 0;
-
-long ExpTimeOutMillis = 0;                            //
-long FootswitchtTimeOutMillis = 0;                    // Storing millis for calculations
-long BacklightTimeOutMillis = 0;                      //
-
-//#define LCDTimeOut  5000                              // Time to stay on LCD the pressed switch/exp. pedal value
-
-const char* MenuItems[7] = { "MIDI Channel    ", 
-                             "MIDI Thru Mode  ",
+const char* MenuItems[7] = { "MIDI Channel    ",     // Array with the Main Menu items
+                             "MIDI In Mode    ",
                              "Set Footswitches", 
                              "Calibrate Expr. ",
                              "Backlight Time  ",
@@ -95,27 +94,26 @@ const char* MenuItems[7] = { "MIDI Channel    ",
                              "Version/Memory  "
                            };
 
-byte Key = 0;
-byte tmp = 0;
 
-// --- Setup procedure --------------------------------------------------------------------------------------------------------------------------------
+
+// --- Setup procedure -----------------------------------------------------------------------------------------------------------
 void setup()
 {
-  Serial.begin(31250);
-  Initialize();
-  lcd.init();
-  lcd.createChar(1,NoteChar);
-  BacklightCheck();  
-  pinMode(IO1,INPUT_PULLUP);
-  pinMode(IO2,INPUT_PULLUP);
-  pinMode(IO3,INPUT_PULLUP);
-  pinMode(IO4,INPUT_PULLUP);
-  pinMode(IO5,INPUT_PULLUP);
-  pinMode(IO6,INPUT_PULLUP);
-  pinMode(IO7,INPUT_PULLUP);
-  pinMode(IO8,INPUT_PULLUP);
-  pinMode(IO9,INPUT_PULLUP);  
-  lcd.clear();
+  Serial.begin(31250);                               // 31250 bauds is the MIDI speed
+  Initialize();                                      // Initialize Values/read them from EEPROM
+  lcd.init();                                        // Initialize LCD 
+  lcd.createChar(1,NoteChar);                        // Create & Assign a custom character (Music Note)
+  BacklightCheck();                                  // Check for Backlight setting
+  pinMode(IO1,INPUT_PULLUP);                         // Enable the internal pull-up resistor on pin
+  pinMode(IO2,INPUT_PULLUP);                         // Enable the internal pull-up resistor on pin
+  pinMode(IO3,INPUT_PULLUP);                         // Enable the internal pull-up resistor on pin
+  pinMode(IO4,INPUT_PULLUP);                         // Enable the internal pull-up resistor on pin
+  pinMode(IO5,INPUT_PULLUP);                         // Enable the internal pull-up resistor on pin
+  pinMode(IO6,INPUT_PULLUP);                         // Enable the internal pull-up resistor on pin
+  pinMode(IO7,INPUT_PULLUP);                         // Enable the internal pull-up resistor on pin
+  pinMode(IO8,INPUT_PULLUP);                         // Enable the internal pull-up resistor on pin
+  pinMode(IO9,INPUT_PULLUP);                         // Enable the internal pull-up resistor on pin
+  lcd.clear();                                    
   lcd.setCursor(0,0);
   lcd.print("    MiFaSol     ");
   lcd.setCursor(0,1);
@@ -137,18 +135,18 @@ void setup()
 
 
 
-// --- Main procedure ---------------------------------------------------------------------------------------------------------
+// --- Main procedure ------------------------------------------------------------------------------------------------------------
 void loop()
 {
-  byte tKey = Keypress();
-  if (tKey != 0)
+  byte Key = Keypress();
+  if (Key != 0)
   {
-    SendCommand(tKey);                               // SEND Command based on keypress    
+    SendCommand(Key);                               // SEND Command based on keypress    
     lcd.setCursor(0,1);
     lcd.print("FS ");
-    lcd.print(tKey);
+    lcd.print(Key);
     FootswitchtTimeOutMillis=millis();
-    while (Keypress()==tKey)
+    while (Keypress()==Key)
       delay(1);
     lcd.setCursor(0,0);
     lcd.print("Standby");
@@ -177,18 +175,18 @@ void loop()
     ExpTimeOutMillis=millis();
   }    
   
-  if (MIDIThru)
+  if (MIDIInMode)
     if (Serial.available())
       CheckMIDI(); // Read midi
 //      Serial.write(Serial.read()); // midi thru
     
     
-  if (millis()-ExpTimeOutMillis>(BacklightTimeOut*1000))
+  if (millis()-ExpTimeOutMillis > LCDTimeOut)
   {
     lcd.setCursor(9,1);
     lcd.print("       ");
   }
-  if (millis()-FootswitchtTimeOutMillis>(BacklightTimeOut*1000))
+  if (millis()-FootswitchtTimeOutMillis > LCDTimeOut)
   {
     lcd.setCursor(0,1);
     lcd.print("       ");
@@ -202,12 +200,7 @@ void loop()
 
 
 
-
-
-
-
-
-
+// --- Detect if button is pressedmore than 2 seconds to enter Menu --------------------------------------------------------------
 void CheckMenuTuner()
 {
   long tmpmillis=millis();
@@ -215,17 +208,21 @@ void CheckMenuTuner()
   {
     if ((millis()-tmpmillis>2000) && (digitalRead(IO9)==LOW))
     {
-      MIDICC(FootSwitch[0][1],127);
-      lcd.setCursor(0,0);
-      lcd.print("Tuner  ");
+      MainMenu();
       while (digitalRead(IO9)==LOW)
         delay(1);
-      ClearScreen();
       return;      
     }
     if (digitalRead(IO9)==HIGH)
     {
-      MainMenu();
+      SendCommand(9);                               // SEND Command based on keypress    
+      lcd.setCursor(0,1);
+      lcd.print("FS ");
+      FootswitchtTimeOutMillis=millis();
+      while (digitalRead(IO9)==HIGH)
+        delay(1);
+      lcd.setCursor(0,0);
+      lcd.print("Standby");
       return;
     }
   }
@@ -233,9 +230,7 @@ void CheckMenuTuner()
 
 
 
-
-
-// --- Detect and process footswitches/keypresses ----------------------------------------------------------------------------
+// --- Detect and process footswitches/keypresses --------------------------------------------------------------------------------
 byte Keypress()
 {
   
@@ -246,7 +241,7 @@ byte Keypress()
     return 0;
   }
   
-  if ((digitalRead(IO2)==LOW) && (digitalRead(IO3)==LOW))
+  if ((digitalRead(IO1)==LOW) && (digitalRead(IO2)==LOW))
   {
     Patch-=1;
     if (Patch<1)
@@ -260,7 +255,7 @@ byte Keypress()
     return 0;
   } 
   else
-  if ((digitalRead(IO2)==LOW) && (digitalRead(IO4)==LOW))
+  if ((digitalRead(IO1)==LOW) && (digitalRead(IO3)==LOW))
   {
     Patch+=1;
     if (Patch>128)
@@ -286,25 +281,25 @@ if ((digitalRead(IO1)==LOW) && (digitalRead(IO2)==LOW))
     return 0;
   }    
 */
-  if (digitalRead(IO1)==LOW)
+  if ((digitalRead(IO1)==LOW) && (digitalRead(IO2)==HIGH) && (digitalRead(IO3)==HIGH))
   {
     BacklightCheck();
     return 1;
   }
   else
-    if ((digitalRead(IO2)==LOW) && (digitalRead(IO3)==HIGH) && (digitalRead(IO4)==HIGH))
+    if ((digitalRead(IO2)==LOW) && (digitalRead(IO1)==HIGH))
     {
       BacklightCheck();
       return 2;
     }
     else
-      if ((digitalRead(IO3)==LOW) && (digitalRead(IO2)==HIGH))
+      if ((digitalRead(IO3)==LOW) && (digitalRead(IO1)==HIGH))
       {
         BacklightCheck();
         return 3;
       }
       else
-        if ((digitalRead(IO4)==LOW) && (digitalRead(IO2)==HIGH))
+        if (digitalRead(IO4)==LOW)
         {
           BacklightCheck();
           return 4;
@@ -345,10 +340,10 @@ if ((digitalRead(IO1)==LOW) && (digitalRead(IO2)==LOW))
   
   
   
-// --- Get the Expr. pedal position --------------------------------------------------------------------------------------------
+// --- Get the Expr. pedal position ----------------------------------------------------------------------------------------------
 byte ExpPedal()
 {
-  tmp = map(analogRead(EXP),MinExp,MaxExp,0,127);  
+  byte tmp = map(analogRead(EXP),MinExp,MaxExp,0,127);  
   if (tmp>127)
     tmp=0;
   return tmp;
@@ -356,7 +351,7 @@ byte ExpPedal()
 
 
 
-// --- Display Command --------------------------------------------------------------------------------------------------------
+// --- Display Command -----------------------------------------------------------------------------------------------------------
 void DisplayCommandType(byte type)
 {
   lcd.setCursor(0,0);  
@@ -384,16 +379,16 @@ void DisplayCommandType(byte type)
 
 
 // --- Display Number as 000 at specific position --------------------------------------------------------------------------------
-void DisplayNumber(byte line, byte pos, byte number, byte decimals)
+void DisplayNumber(byte Line, byte Pos, byte Number, byte Decimals)
 {
-  lcd.setCursor(pos,line);
-  if ((decimals==4) && (number<1000))
+  lcd.setCursor(Pos,Line);
+  if ((Decimals==4) && (Number<1000))
     lcd.print("0");
-  if ((number<100) && (decimals>=3))
+  if ((Number<100) && (Decimals>=3))
     lcd.print("0");
-  if ((number<10) && (decimals>=2))
+  if ((Number<10) && (Decimals>=2))
     lcd.print("0");
-  lcd.print(number);
+  lcd.print(Number);
 }
 
 
@@ -415,7 +410,7 @@ void MainMenu()
     lcd.print("Setup Menu      ");
     lcd.setCursor(0,1);
     lcd.print(MenuItems[Menu-1]);
-    tmp=Keypress();
+    byte tmp=Keypress();
     if (tmp!=0)
       delay(250);
     switch (tmp)
@@ -438,25 +433,25 @@ void MainMenu()
       case 3:  // enter
         switch (Menu)
         {
-          case 1: // Set midi channel
+          case 1: // Set MIDI Out Channel
             SetupMIDIChannel();
             break;
-          case 2:
-            SetupMIDIThru();
+          case 2: // Set MIDI In Mode
+            SetupMIDIInMode();
             break;
-          case 3: // set foot switches
+          case 3: // Set Footswitches
             FootSwitchMenu();
             break;
-          case 4: // calibrate expr. pedal
+          case 4: // Calibrate Expr. Pedal
             CalibratePedal();
             break;
-          case 5: // set backlight
+          case 5: // Set Backlight
             SetupBacklight();
             break;
-          case 6: // factory reset
+          case 6: // Factory Reset
             FactoryReset();
             break;
-          case 7:
+          case 7: // Show version & free memory
             ShowVersion();
             break;
         }
@@ -469,37 +464,37 @@ void MainMenu()
 
 
 
-// --- Setup MIDI Thru ------------------------------------------------------------------------------------------------------------
-void SetupMIDIThru()
+// --- Setup MIDI Thru -----------------------------------------------------------------------------------------------------------
+void SetupMIDIInMode()
 {
   lcd.setCursor(0,0);
-  lcd.print("Set MIDI Thru   ");
+  lcd.print("Process MIDI In ");
   
   lcd.setCursor(0,1);
   //         0123456789012345
-  lcd.print("Thru  [        ]");
+  lcd.print("Mode  [        ]");
   lcd.setCursor(13,1);
-  boolean tmpMIDIThru=MIDIThru;
+  boolean tmpMIDIInMode=MIDIInMode;
   boolean StayInside=true;
   while (StayInside)
   {
-    ShowMIDIThru(tmpMIDIThru);    
-    tmp=Keypress();
+    ShowMIDIInMode(tmpMIDIInMode);    
+    byte tmp=Keypress();
     if (tmp!=0)
       delay(250);
     switch (tmp)
     {
       case 1: // left
-        tmpMIDIThru=!(tmpMIDIThru);
+        tmpMIDIInMode=!(tmpMIDIInMode);
         break;
       case 2: // right
-        tmpMIDIThru=!(tmpMIDIThru);
+        tmpMIDIInMode=!(tmpMIDIInMode);
         break;
       case 3: // enter
-        MIDIThru=tmpMIDIThru;
-        if (MIDIThru)
+        MIDIInMode=tmpMIDIInMode;
+        if (MIDIInMode)
         {
-          EEPROM.write(5,1);  // write to eeprom
+          EEPROM.write(5,1);  
         }
         else
         {
@@ -517,7 +512,7 @@ void SetupMIDIThru()
 
 
 // --- Show MIDI Thru Status -----------------------------------------------------------------------------------------------------
-void ShowMIDIThru(boolean tmpMode)
+void ShowMIDIInMode(boolean tmpMode)
 {
   lcd.setCursor(7,1);
   if (tmpMode)
@@ -543,7 +538,7 @@ void SetupBacklight()
   while (StayInside)
   {
     ShowBacklight(tmpBacklight);    
-    tmp=Keypress();
+    byte tmp=Keypress();
     if (tmp!=0)
       delay(150);
     switch (tmp)
@@ -613,7 +608,7 @@ void SetupMIDIChannel()
   while (StayInside)
   {
     DisplayNumber(1,13,tmpChannel,2);
-    tmp=Keypress();
+    byte tmp=Keypress();
     if (tmp!=0)
       delay(250);
     switch (tmp)
@@ -652,7 +647,7 @@ void FactoryReset()
   boolean StayInside=true;
   while (StayInside)
   {
-    tmp=Keypress();
+    byte tmp=Keypress();
     switch (tmp)
     {
       case 3: // enter
@@ -703,7 +698,7 @@ void FootSwitchMenu()
     }
     else         
       lcd.print("Expr. Pedal     ");
-    tmp=Keypress();
+    byte tmp=Keypress();
     if (tmp!=0)
       delay(250);
     switch (tmp)
@@ -754,6 +749,7 @@ void DisplayMode(byte Mode)
 }
 
 
+
 // --- Setup Specific Footswitch -------------------------------------------------------------------------------------------------
 void SetupFootSwitchAll(byte Switch, byte Mode)
 {
@@ -784,7 +780,7 @@ void SetupFootSwitchAll(byte Switch, byte Mode)
   while (StayInside)
   {
     DisplayNumber(1,12,tmpSetting-1,3);
-    tmp=Keypress();
+    byte tmp=Keypress();
     if (tmp!=0)
       delay(150);
     switch (tmp)
@@ -836,7 +832,7 @@ void ChooseFSOption(byte Switch)
   {
     lcd.setCursor(10,1);
     DisplayMode(tmpMode);
-    tmp=Keypress();
+    byte tmp=Keypress();
     if (tmp!=0)
       delay(250);
     switch (tmp)
@@ -880,7 +876,7 @@ void ChooseFSOption(byte Switch)
 
 
 
-// --- Calibrate Exp. Pedal -------------------------------------------------------------------------------------------------------
+// --- Calibrate Exp. Pedal ------------------------------------------------------------------------------------------------------
 void CalibratePedal()
 {
   lcd.setCursor(0,0);
@@ -894,7 +890,7 @@ void CalibratePedal()
   {
     tmpMinMax=analogRead(EXP);
     DisplayNumber(1,11,tmpMinMax,4);
-    tmp=Keypress();
+    byte tmp=Keypress();
     switch (tmp)
     {
       case 3: // enter
@@ -920,7 +916,7 @@ void CalibratePedal()
   {
     tmpMinMax=analogRead(EXP);
     DisplayNumber(1,11,tmpMinMax,4);
-    tmp=Keypress();
+    byte tmp=Keypress();
     switch (tmp)
     {
       case 3: // enter
@@ -937,8 +933,7 @@ void CalibratePedal()
 
 
 
-
-// --- Clear / Setup LCD Display --------------------------------------------------------------------------------------------------
+// --- Clear / Setup LCD Display -------------------------------------------------------------------------------------------------
 void ClearScreen()
 {
   lcd.clear();
@@ -949,8 +944,7 @@ void ClearScreen()
 
 
 
-// --- Write Integers to EEPROM procedure -----------------------------------------------------------------------------------------
-// Write numbers (0-65535) to EEPROM (using 2 bytes).
+// --- Write Integers to EEPROM procedure (using 2 bytes) ------------------------------------------------------------------------
 void WriteToMem(byte address, int number)
 {
   EEPROM.write(address,number/256);
@@ -959,8 +953,7 @@ void WriteToMem(byte address, int number)
 
 
 
-// --- Read Integers from EEPROM procedure ------------------------------------------------------------------------------------------
-// Read numbers (0-65535) from EEPROM (using 2 bytes).
+// --- Read Integers from EEPROM procedure (using 2 bytes) -----------------------------------------------------------------------
 int ReadFromMem(byte Address)
 {
   return EEPROM.read(Address)*256+EEPROM.read(Address+1);
@@ -968,18 +961,18 @@ int ReadFromMem(byte Address)
 
 
 
-// --- Initialize Settings / Read from EEPROM ---------------------------------------------------------------------------------------
+// --- Initialize Settings / Read from EEPROM ------------------------------------------------------------------------------------
 void Initialize()
 {
   BacklightTimeOut=EEPROM.read(4);  
   MIDIChannel=EEPROM.read(1);
   if (EEPROM.read(5)==1)
   {
-    MIDIThru = true;
+    MIDIInMode = true;
   }
   else
   {
-    MIDIThru = false;
+    MIDIInMode = false;
   }
   MinExp=ReadFromMem(11);
   MaxExp=ReadFromMem(13);
@@ -992,8 +985,7 @@ void Initialize()
 
 
 
-
-// --- Send a command, based on pressed footswitch ----------------------------------------------------------------------------
+// --- Send a command, based on specific switch ----------------------------------------------------------------------------------
 void SendCommand(byte Switch)
 {
   DisplayCommandType(FootSwitch[Switch-1][0]);
@@ -1042,9 +1034,7 @@ void BacklightCheck()
 
 
 
-
-
-// Send CC
+// --- Send Control Change MIDI Message ------------------------------------------------------------------------------------------
 void MIDICC(byte CCNumber, byte Value)
 {
   // 0xB0 = Control Change / Channel 0.
@@ -1057,7 +1047,8 @@ void MIDICC(byte CCNumber, byte Value)
 }
 
 
-// Send Program Change
+
+// --- Send Program Change MIDI Message ------------------------------------------------------------------------------------------
 void MIDIProgramChange(byte Patch)
 {
   Serial.write(0xC0 + (MIDIChannel - 1));
@@ -1065,7 +1056,8 @@ void MIDIProgramChange(byte Patch)
 }
 
 
-// Send a Note
+
+// --- Send a Note On/Off MIDI Message -------------------------------------------------------------------------------------------
 void MIDINote(byte Note, byte Velocity, byte Mode)
 {
   if (Mode==1)
@@ -1084,19 +1076,7 @@ void MIDINote(byte Note, byte Velocity, byte Mode)
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
+// --- Check for incoming MIDI Messages ------------------------------------------------------------------------------------------
 void CheckMIDI()
 {
   byte StatusByte;
@@ -1118,6 +1098,9 @@ void CheckMIDI()
     }
 }
 
+
+
+// --- Process Incoming MIDI Messages --------------------------------------------------------------------------------------------
 void ProcessInput(byte StatusByte, byte DataByte1, byte DataByte2, byte Bytes)
 {
   switch (Bytes)
@@ -1128,6 +1111,8 @@ void ProcessInput(byte StatusByte, byte DataByte1, byte DataByte2, byte Bytes)
         if ((StatusByte - 0XC0) == (MIDIChannel -1))
         {
           Patch = DataByte1;
+          
+          // do some display here -- currently for debuging purposes
           lcd.clear();
           lcd.print("PATCH ");
           lcd.print(Patch);
@@ -1136,6 +1121,7 @@ void ProcessInput(byte StatusByte, byte DataByte1, byte DataByte2, byte Bytes)
       }
       else
       {
+        // same here
         lcd.clear();
         lcd.print("Status: ");
         lcd.print(StatusByte);
@@ -1146,6 +1132,7 @@ void ProcessInput(byte StatusByte, byte DataByte1, byte DataByte2, byte Bytes)
       }
       break;
     case 3:
+      // same here
       lcd.clear();
       lcd.print("Status: ");
       lcd.print(StatusByte);
@@ -1160,6 +1147,8 @@ void ProcessInput(byte StatusByte, byte DataByte1, byte DataByte2, byte Bytes)
 }
 
 
+
+// --- Show System Version and free memory ---------------------------------------------------------------------------------------
 void ShowVersion()
 {
   lcd.clear();
