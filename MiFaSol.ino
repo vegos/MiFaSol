@@ -36,6 +36,7 @@
 // - Control Change sends fixed value of 127 (or variable for expression pedal).
 // - MIDI In mode decodes incoming MIDI Messages (Program Change only).
 //
+//
 // EEPROM:
 // 1 = MIDI Channel
 // 4 - Backlight Timeout
@@ -43,9 +44,23 @@
 // 31-40 = Type of message for Footswitch-31 (1..4)
 // 41-50 = Value (0..127)
 //
+//
+// SWITCHES:
+//
+// 1 & 2: Setup Menu
+//   On Setup menu:
+//   1: Left
+//   2: Right
+//   3: Enter
+//   4: Back/ESC/Cancel/Whatever
+//
+// 2 & 4: Previous Program / Patch -- Not implemented yet
+// 3 & 4: Next Program / Patch -- Not implemented yet
+//
 
 
-#define Version " Version 3.05b  "                   // Current Version
+
+#define Version "  Version 1.00  "                   // Current Version
 
 #include <EEPROM.h>                                  
 #include <Wire.h> 
@@ -73,11 +88,12 @@ volatile byte PreviousExpPedal = 0;                  // Expression Pedal previou
 volatile int MinExp = 0;                             // Expression Pedal Minimum reading
 volatile int MaxExp = 1024;                          // Expression Pedal Maximum reading
 
-volatile byte MIDIChannel = 1;                       // MIDI Out Channel (1..16)
+volatile byte MIDIInChannel = 1;                     // MIDI In Channel (1..17 -- 17 is Disabled MIDI In)
+volatile byte MIDIOutChannel = 1;                    // MIDI Out Channel (1..16)
 volatile byte BacklightTimeOut = 15;                 // Valid from 0..99 sec, 100 for Always On, 101 for Always Off.
 volatile byte FootSwitch[10][2];                     // Array for storing settings for foot switches
-volatile boolean MIDIInMode = true;                  // MIDI Thru mode: enabled/disabled
 volatile byte Patch = 0;                             // Current patch
+volatile boolean ExprPedalMode = false;              // Expr. Pedal is active
 
 long ExpTimeOutMillis = 0;                           //
 long FootswitchtTimeOutMillis = 0;                   // Storing millis for calculations
@@ -85,9 +101,10 @@ long BacklightTimeOutMillis = 0;                     //
 
 #define LCDTimeOut  2500                             // Time to stay on LCD the pressed switch/exp. pedal value
 
-const char* MenuItems[7] = { "MIDI Channel    ",     // Array with the Main Menu items
-                             "MIDI In Mode    ",
+const char* MenuItems[8] = { "MIDI Out Channel",     // Array with the Main Menu items
+                             "MIDI In Channel ",
                              "Set Footswitches", 
+                             "Expr. Pedal Mode",
                              "Calibrate Expr. ",
                              "Backlight Time  ",
                              "Factory Reset   ",
@@ -148,9 +165,12 @@ void loop()
     FootswitchtTimeOutMillis=millis();
     while (Keypress()==Key)
       delay(1);
+delay(250);
     lcd.setCursor(0,0);
     lcd.print("Standby");
   }    
+
+if (ExprPedalMode)
   if (PreviousExpPedal != ExpPedal())               // Exp. pedal is pressed, send the message
   {
     PreviousExpPedal = ExpPedal();
@@ -175,11 +195,9 @@ void loop()
     ExpTimeOutMillis=millis();
   }    
   
-  if (MIDIInMode)
+  if (MIDIInChannel!=17)
     if (Serial.available())
-      CheckMIDI(); // Read midi
-//      Serial.write(Serial.read()); // midi thru
-    
+      CheckMIDI(); // Read midi   
     
   if (millis()-ExpTimeOutMillis > LCDTimeOut)
   {
@@ -200,142 +218,75 @@ void loop()
 
 
 
-// --- Detect if button is pressedmore than 2 seconds to enter Menu --------------------------------------------------------------
-void CheckMenuTuner()
-{
-  long tmpmillis=millis();
-  while (true)
-  {
-    if ((millis()-tmpmillis>2000) && (digitalRead(IO9)==LOW))
-    {
-      MainMenu();
-      while (digitalRead(IO9)==LOW)
-        delay(1);
-      return;      
-    }
-    if (digitalRead(IO9)==HIGH)
-    {
-      SendCommand(9);                               // SEND Command based on keypress    
-      lcd.setCursor(0,1);
-      lcd.print("FS ");
-      FootswitchtTimeOutMillis=millis();
-      while (digitalRead(IO9)==HIGH)
-        delay(1);
-      lcd.setCursor(0,0);
-      lcd.print("Standby");
-      return;
-    }
-  }
-}
-
-
 
 // --- Detect and process footswitches/keypresses --------------------------------------------------------------------------------
 byte Keypress()
 {
-  
-  if (digitalRead(IO9)==LOW)
-  {
-    BacklightCheck();         
-    CheckMenuTuner();
-    return 0;
-  }
-  
   if ((digitalRead(IO1)==LOW) && (digitalRead(IO2)==LOW))
-  {
-    Patch-=1;
-    if (Patch<1)
-      Patch=128;
-    BacklightCheck();      
-    MIDIProgramChange(Patch-1);
-    DisplayCommandType(2);
-    DisplayNumber(0,4,Patch-1,3);      
-    while (digitalRead(IO3)==LOW)
-      delay(1);
-    return 0;
-  } 
-  else
-  if ((digitalRead(IO1)==LOW) && (digitalRead(IO3)==LOW))
-  {
-    Patch+=1;
-    if (Patch>128)
-      Patch=1;
-    BacklightCheck();  
-    MIDIProgramChange(Patch-1);    
-    DisplayCommandType(2);
-    DisplayNumber(0,4,Patch-1,3);  
-    while (digitalRead(IO4)==LOW)
-      delay(1);
-    
-    return 0;
-  }  
-  else
-/*
-if ((digitalRead(IO1)==LOW) && (digitalRead(IO2)==LOW))
-  {
-    BacklightCheck();
-    while ((digitalRead(IO1)==LOW) && (digitalRead(IO2)==LOW))    // Delay while switches are still pressed
-      delay(1);
-    // Enter menu
-    MainMenu();
-    return 0;
-  }    
-*/
-  if ((digitalRead(IO1)==LOW) && (digitalRead(IO2)==HIGH) && (digitalRead(IO3)==HIGH))
-  {
-    BacklightCheck();
-    return 1;
-  }
-  else
-    if ((digitalRead(IO2)==LOW) && (digitalRead(IO1)==HIGH))
     {
       BacklightCheck();
-      return 2;
+      while ((digitalRead(IO1)==LOW) && (digitalRead(IO2)==LOW))    // Delay while switches are still pressed
+        delay(1);
+      // Enter menu
+      MainMenu();
+      return 0;
+    }    
+  else   
+    if ((digitalRead(IO1)==LOW) && (digitalRead(IO2)==HIGH))
+    {
+      BacklightCheck();
+      return 1;
     }
     else
-      if ((digitalRead(IO3)==LOW) && (digitalRead(IO1)==HIGH))
+      if ((digitalRead(IO2)==LOW) && (digitalRead(IO1)==HIGH))
       {
         BacklightCheck();
-        return 3;
+        return 2;
       }
       else
-        if (digitalRead(IO4)==LOW)
+        if (digitalRead(IO3)==LOW)
         {
           BacklightCheck();
-          return 4;
+          return 3;
         }
         else
-          if (digitalRead(IO5)==LOW)
+          if (digitalRead(IO4)==LOW)
           {
             BacklightCheck();
-            return 5;
+            return 4;
           }
           else
-            if (digitalRead(IO6)==LOW)
+            if (digitalRead(IO5)==LOW)
             {
               BacklightCheck();
-              return 6;
+              return 5;
             }
             else
-              if (digitalRead(IO7)==LOW)
+              if (digitalRead(IO6)==LOW)
               {
                 BacklightCheck();
-                return 7;
+                return 6;
               }
               else
-                if (digitalRead(IO8)==LOW)
+                if (digitalRead(IO7)==LOW)
                 {
                   BacklightCheck();
-                  return 8;
+                  return 7;
                 }
                 else
-//                  if (digitalRead(IO9)==LOW)
-//                  {
-//                    BacklightCheck();
-//                    return 9;
-//                  }
-//                  else
-                    return 0;
+                  if (digitalRead(IO8)==LOW)
+                  {
+                    BacklightCheck();
+                    return 8;
+                  }
+                  else
+                    if (digitalRead(IO9)==LOW)
+                    {
+                      BacklightCheck();
+                      return 9;
+                    }
+                    else
+                      return 0;
 }
   
   
@@ -405,7 +356,6 @@ void MainMenu()
     delay(1);
   while (StayInside)
   {
-    //         0123456789012345
     lcd.setCursor(0,0);    
     lcd.print("Setup Menu      ");
     lcd.setCursor(0,1);
@@ -423,35 +373,38 @@ void MainMenu()
       case 1:  // left
         Menu-=1;
         if (Menu<1)
-          Menu=7;
+          Menu=8;
           break;
       case 2:  // right
         Menu+=1;
-        if (Menu>7)
+        if (Menu>8)
           Menu=1;
           break;
       case 3:  // enter
         switch (Menu)
         {
           case 1: // Set MIDI Out Channel
-            SetupMIDIChannel();
+            SetupMIDIChannel(16);
             break;
-          case 2: // Set MIDI In Mode
-            SetupMIDIInMode();
+          case 2: // Set MIDI In Channel
+            SetupMIDIChannel(17);
             break;
           case 3: // Set Footswitches
             FootSwitchMenu();
             break;
-          case 4: // Calibrate Expr. Pedal
+          case 4: // Expr. Pedal Mode
+            SetupExprPedalMode();
+            break;
+          case 5: // Calibrate Expr. Pedal
             CalibratePedal();
             break;
-          case 5: // Set Backlight
+          case 6: // Set Backlight
             SetupBacklight();
             break;
-          case 6: // Factory Reset
+          case 7: // Factory Reset
             FactoryReset();
             break;
-          case 7: // Show version & free memory
+          case 8: // Show version & free memory
             ShowVersion();
             break;
         }
@@ -464,55 +417,8 @@ void MainMenu()
 
 
 
-// --- Setup MIDI Thru -----------------------------------------------------------------------------------------------------------
-void SetupMIDIInMode()
-{
-  lcd.setCursor(0,0);
-  lcd.print("Process MIDI In ");
-  
-  lcd.setCursor(0,1);
-  //         0123456789012345
-  lcd.print("Mode  [        ]");
-  lcd.setCursor(13,1);
-  boolean tmpMIDIInMode=MIDIInMode;
-  boolean StayInside=true;
-  while (StayInside)
-  {
-    ShowMIDIInMode(tmpMIDIInMode);    
-    byte tmp=Keypress();
-    if (tmp!=0)
-      delay(250);
-    switch (tmp)
-    {
-      case 1: // left
-        tmpMIDIInMode=!(tmpMIDIInMode);
-        break;
-      case 2: // right
-        tmpMIDIInMode=!(tmpMIDIInMode);
-        break;
-      case 3: // enter
-        MIDIInMode=tmpMIDIInMode;
-        if (MIDIInMode)
-        {
-          EEPROM.write(5,1);  
-        }
-        else
-        {
-          EEPROM.write(5,0);
-        }
-        StayInside=false;        
-        break;
-      case 4: // back
-        StayInside=false;
-        break;
-    }
-  }
-}
-
-
-
-// --- Show MIDI Thru Status -----------------------------------------------------------------------------------------------------
-void ShowMIDIInMode(boolean tmpMode)
+// --- Show Enabled/Disable Mode -------------------------------------------------------------------------------------------------
+void ShowEnabledDisable(boolean tmpMode)
 {
   lcd.setCursor(7,1);
   if (tmpMode)
@@ -530,7 +436,6 @@ void SetupBacklight()
   lcd.print("Set Backlight   ");
   
   lcd.setCursor(0,1);
-  //         0123456789012345
   lcd.print("Backlight       ");
   lcd.setCursor(13,1);
   byte tmpBacklight=BacklightTimeOut;
@@ -594,20 +499,82 @@ void ShowBacklight(byte tmpBacklight)
 
 
 
-// --- Setup MIDI Channel --------------------------------------------------------------------------------------------------------
-void SetupMIDIChannel()
+// --- Setup Backlight -----------------------------------------------------------------------------------------------------------
+void SetupExprPedalMode()
 {
   lcd.setCursor(0,0);
-  lcd.print("Select Channel  ");
-
+  lcd.print("Set Expr. Pedal ");
+  
   lcd.setCursor(0,1);
-  //         0123456789012345
-  lcd.print("MIDIChannel [  ]");
-  byte tmpChannel = MIDIChannel;
+  lcd.print("Mode  [        ]");
+  lcd.setCursor(13,1);
+  byte tmpExprPedalMode=ExprPedalMode;
   boolean StayInside=true;
   while (StayInside)
   {
-    DisplayNumber(1,13,tmpChannel,2);
+    ShowEnabledDisable(tmpExprPedalMode);
+    byte tmp=Keypress();
+    if (tmp!=0)
+      delay(150);
+    switch (tmp)
+    {
+      case 1: // left
+        tmpExprPedalMode=!(tmpExprPedalMode);
+        break;
+      case 2: // right
+        tmpExprPedalMode=!(tmpExprPedalMode);
+        break;
+      case 3: // enter
+        ExprPedalMode=tmpExprPedalMode;
+        EEPROM.write(6,ExprPedalMode);  // write to eeprom
+        StayInside=false;        
+        break;
+      case 4: // back
+        StayInside=false;
+        break;
+    }
+  }
+}
+
+
+
+// --- Setup MIDI Channel --------------------------------------------------------------------------------------------------------
+void SetupMIDIChannel(byte TotalChannels)
+{
+  lcd.setCursor(0,0);
+  if (TotalChannels==16)
+    lcd.print("MIDI Out Channel");
+  else
+    lcd.print("MIDI In Channel ");
+  lcd.setCursor(0,1);
+  byte tmpChannel = 0;
+  if (TotalChannels==16)
+  {
+    lcd.print("Channel     [  ]");
+    tmpChannel = MIDIOutChannel;
+  }
+  else
+  {
+    lcd.print("Channel    [   ]");
+    tmpChannel = MIDIInChannel;
+  }
+    
+//  byte tmpChannel = MIDIChannel;
+  boolean StayInside=true;
+  while (StayInside)
+  {
+    if (TotalChannels==16)
+      DisplayNumber(1,13,tmpChannel,2);
+    else
+    {
+      if (tmpChannel!=17)
+        DisplayNumber(1,12,tmpChannel,3);
+      else
+      {
+        lcd.setCursor(12,1);
+        lcd.print("OFF");
+      }
+    }
     byte tmp=Keypress();
     if (tmp!=0)
       delay(250);
@@ -615,17 +582,38 @@ void SetupMIDIChannel()
     {
       case 1: // left
         tmpChannel-=1;
-        if (tmpChannel<1)
-          tmpChannel=16;
+          if (tmpChannel<1)
+          {
+            if (TotalChannels==16)
+              tmpChannel=16;
+            else
+              tmpChannel=17;
+          }
         break;
       case 2: // right
         tmpChannel+=1;
-        if (tmpChannel>16)
-          tmpChannel=1;
+        if (TotalChannels==16)
+        {
+          if (tmpChannel>16)
+            tmpChannel=1;
+        }
+        else
+        {
+          if (tmpChannel>17)
+            tmpChannel=1;
+        }            
         break;
       case 3: // enter
-        MIDIChannel=tmpChannel;
-        EEPROM.write(1,MIDIChannel);  // write to eeprom
+        if (TotalChannels==16)
+        {
+          MIDIOutChannel=tmpChannel;          
+          EEPROM.write(1,MIDIOutChannel);  // write to eeprom
+        }
+        else
+        {
+          MIDIInChannel=tmpChannel;
+          EEPROM.write(2,MIDIInChannel);
+        }
         StayInside=false;                  
         break;
       case 4: // back
@@ -654,8 +642,10 @@ void FactoryReset()
         WriteToMem(11,0);
         WriteToMem(13,1024);
         EEPROM.write(1,1);
+        EEPROM.write(2,1);
         EEPROM.write(4,15);
         EEPROM.write(5,1);
+        EEPROM.write(6,0);
         for (byte tSwitch=1; tSwitch<=9; tSwitch++)
         {    
           EEPROM.write(30+tSwitch,2);
@@ -766,8 +756,6 @@ void SetupFootSwitchAll(byte Switch, byte Mode)
     lcd.print(": ");
     DisplayMode(Mode);
     lcd.print("  [   ]");
-    // 0123456789012345
-    // 01: CC     [001]
   }
   else
   {
@@ -880,7 +868,6 @@ void ChooseFSOption(byte Switch)
 void CalibratePedal()
 {
   lcd.setCursor(0,0);
-  //         0123456789012345
   lcd.print("Heel Down (Low) ");
   lcd.setCursor(0,1);
   lcd.print("Value     [    ]");
@@ -906,7 +893,6 @@ void CalibratePedal()
   while (Keypress()!=0)
     delay(1);
   lcd.setCursor(0,0);
-  //         0123456789012345
   lcd.print("Toe Down (High) ");
   lcd.setCursor(0,1);
   lcd.print("Value     [    ]");
@@ -937,9 +923,14 @@ void CalibratePedal()
 void ClearScreen()
 {
   lcd.clear();
-  lcd.print("Standby         ");
+  if (MIDIInChannel!=17)
+    lcd.print("Standby    [   ]");
+  else
+    lcd.print("Standby         ");
   lcd.setCursor(0,1);
   lcd.print("                ");
+  if (MIDIInChannel!=17)
+    DisplayNumber(0,12,Patch,3);  
 }  
 
 
@@ -965,14 +956,15 @@ int ReadFromMem(byte Address)
 void Initialize()
 {
   BacklightTimeOut=EEPROM.read(4);  
-  MIDIChannel=EEPROM.read(1);
-  if (EEPROM.read(5)==1)
+  MIDIOutChannel=EEPROM.read(1);
+  MIDIInChannel=EEPROM.read(2);
+  if (EEPROM.read(6)==1)
   {
-    MIDIInMode = true;
+    ExprPedalMode=true;
   }
   else
   {
-    MIDIInMode = false;
+    ExprPedalMode=false;
   }
   MinExp=ReadFromMem(11);
   MaxExp=ReadFromMem(13);
@@ -1037,11 +1029,7 @@ void BacklightCheck()
 // --- Send Control Change MIDI Message ------------------------------------------------------------------------------------------
 void MIDICC(byte CCNumber, byte Value)
 {
-  // 0xB0 = Control Change / Channel 0.
-  // 0xAF + X = Control Change @ Channel X
-  Serial.write(0xB0 + (MIDIChannel - 1));
-  // or
-  // Serial.write(0xB0 | (MidiChannel & 0x0F));
+  Serial.write(0xB0 + (MIDIOutChannel - 1));
   Serial.write(CCNumber);
   Serial.write(Value);
 }
@@ -1049,10 +1037,10 @@ void MIDICC(byte CCNumber, byte Value)
 
 
 // --- Send Program Change MIDI Message ------------------------------------------------------------------------------------------
-void MIDIProgramChange(byte Patch)
+void MIDIProgramChange(byte tmpPatch)
 {
-  Serial.write(0xC0 + (MIDIChannel - 1));
-  Serial.write(Patch);
+  Serial.write(0xC0 + (MIDIOutChannel - 1));
+  Serial.write(tmpPatch);
 }
 
 
@@ -1062,13 +1050,13 @@ void MIDINote(byte Note, byte Velocity, byte Mode)
 {
   if (Mode==1)
   {
-    Serial.write(0x9 + (MIDIChannel - 1));
+    Serial.write(0x9 + (MIDIOutChannel - 1));
     Serial.write(Note);
     Serial.write(Velocity);
   }
   else
   {
-    Serial.write(0x8 + (MIDIChannel - 1));
+    Serial.write(0x8 + (MIDIOutChannel - 1));
     Serial.write(Note);
     Serial.write(Velocity);
   }
@@ -1082,20 +1070,19 @@ void CheckMIDI()
   byte StatusByte;
   byte DataByte1;
   byte DataByte2;
-  if (Serial.available() >= 3)
+  if (Serial.available() == 2)
   {
-    StatusByte = Serial.read();//read first byte
-    DataByte1 = Serial.read();//read next byte
-    DataByte2 = Serial.read();//read final byte
-    ProcessInput(StatusByte,DataByte1,DataByte2,3);
+    StatusByte = Serial.read();
+    DataByte1 = Serial.read();
+    ProcessInput(StatusByte,DataByte1,DataByte2,2);
   }
   else
-    if (Serial.available() >= 2)
-    {
-      StatusByte = Serial.read();
-      DataByte1 = Serial.read();
-      ProcessInput(StatusByte,DataByte1,DataByte2,2);
-    }
+  {
+    StatusByte = Serial.read();  // read first byte
+    DataByte1 = Serial.read();   // read next byte
+    DataByte2 = Serial.read();   // read final byte
+    ProcessInput(StatusByte,DataByte1,DataByte2,3);
+  }
 }
 
 
@@ -1108,40 +1095,20 @@ void ProcessInput(byte StatusByte, byte DataByte1, byte DataByte2, byte Bytes)
     case 2:
       if ((StatusByte >= 0xC0) && (StatusByte <= 0xCF))
       {
-        if ((StatusByte - 0XC0) == (MIDIChannel -1))
+        if ((StatusByte - 0xC0) == (MIDIInChannel - 1))
         {
           Patch = DataByte1;
-          
           // do some display here -- currently for debuging purposes
-          lcd.clear();
-          lcd.print("PATCH ");
-          lcd.print(Patch);
-          delay(3000);
+          DisplayNumber(0,12,Patch,3);
         }
-      }
-      else
-      {
-        // same here
-        lcd.clear();
-        lcd.print("Status: ");
-        lcd.print(StatusByte);
-        lcd.setCursor(0,1);
-        lcd.print("Data: ");
-        lcd.print(DataByte1);
-        delay(3000);
+        else
+        {
+          UnknownRX();
+        }
       }
       break;
     case 3:
-      // same here
-      lcd.clear();
-      lcd.print("Status: ");
-      lcd.print(StatusByte);
-      lcd.setCursor(0,1);
-      lcd.print("1: ");
-      lcd.print(DataByte1);
-      lcd.print(" - 2: ");
-      lcd.print(DataByte2);
-      delay(3000);
+      UnknownRX();
       break;
   }
 }
@@ -1160,4 +1127,21 @@ void ShowVersion()
     delay(1);
   while (Keypress()==4)
     delay(1);
+}
+
+
+
+// --- Not Recognized (or Not interested in that) MIDI Message -------------------------------------------------------------------
+void UnknownRX()
+{
+  lcd.setCursor(12,0);
+  lcd.print("RX!");
+  delay(150);
+  if (MIDIInChannel != 17)
+    DisplayNumber(0,12,Patch,3);      
+  else
+  {
+    lcd.setCursor(11,0);
+    lcd.print("     ");
+  }
 }
