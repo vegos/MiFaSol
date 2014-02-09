@@ -59,7 +59,7 @@
 //
 
 
-#define Version "    Version 1.10    "               // Current Version
+#define Version "    Version 1.12    "               // Current Version
 
 #include <EEPROM.h>                                  
 #include <Wire.h> 
@@ -128,7 +128,8 @@ void setup()
   pinMode(IO6,INPUT_PULLUP);                         // Enable the internal pull-up resistor on pin
   pinMode(IO7,INPUT_PULLUP);                         // Enable the internal pull-up resistor on pin
   pinMode(IO8,INPUT_PULLUP);                         // Enable the internal pull-up resistor on pin
-  pinMode(IO9,INPUT_PULLUP);                         // Enable the internal pull-up resistor on pin
+//  pinMode(IO9,INPUT_PULLUP);                         // Enable the internal pull-up resistor on pin
+  pinMode(IO9,OUTPUT);                               // Setup the IO9 as Output (to turn on LED)
   lcd.clear();                                    
   lcd.setCursor(0,0);
   lcd.print("      MiFaSol       ");
@@ -1083,22 +1084,43 @@ void CheckMIDI()
   {
     StatusByte = Serial.read();
     DataByte1 = Serial.read();
-    ProcessInput(StatusByte,DataByte1,DataByte2,2);
+//    ProcessInput(StatusByte,DataByte1,DataByte2,2);
+    ProcessInput(StatusByte,DataByte1,DataByte2);
   }
   else
   {
     StatusByte = Serial.read();  // read first byte
     DataByte1 = Serial.read();   // read next byte
     DataByte2 = Serial.read();   // read final byte
-    ProcessInput(StatusByte,DataByte1,DataByte2,3);
+//    ProcessInput(StatusByte,DataByte1,DataByte2,3);
+    ProcessInput(StatusByte,DataByte1,DataByte2);
   }
 }
 
 
 
 // --- Process Incoming MIDI Messages --------------------------------------------------------------------------------------------
-void ProcessInput(byte StatusByte, byte DataByte1, byte DataByte2, byte Bytes)
+//void ProcessInput(byte StatusByte, byte DataByte1, byte DataByte2, byte Bytes)
+void ProcessInput(byte StatusByte, byte DataByte1, byte DataByte2)
 {
+  byte BottomNibble = StatusByte & 0xF;
+  byte TopNibble = StatusByte >> 4;
+  if ((TopNibble == B1100) && (BottomNibble == (MIDIInChannel - 1)))                          // Program Change is B1100
+  {
+    Patch = DataByte1;
+    DisplayNumber(1,16,Patch,3);
+  }
+  else
+    if ((TopNibble == B1011) && (BottomNibble == (MIDIInChannel -1)))                         // Control Change (CC) is B1011
+    {                                                                                         // 0x7F = 127 = Tap Tempo on My Digitech
+      if (DataByte1 == 0x7F)
+        digitalWrite(IO9,HIGH);
+      else
+        digitalWrite(IO9,LOW);
+    }
+    else    
+      UnknownRX();
+/*  
   switch (Bytes)
   {
     case 2:
@@ -1120,6 +1142,7 @@ void ProcessInput(byte StatusByte, byte DataByte1, byte DataByte2, byte Bytes)
       UnknownRX();
       break;
   }
+  */
 }
 
 
@@ -1128,13 +1151,12 @@ void ProcessInput(byte StatusByte, byte DataByte1, byte DataByte2, byte Bytes)
 void ShowVersion()
 {
   lcd.clear();
-  lcd.print("       Version      ");
-  lcd.print(Version);
+  lcd.print("  :: Magla MIDI ::  ");
   lcd.setCursor(0,1);
-  lcd.print("     Free Memory    ");          
-  lcd.setCursor(6,2);
+  lcd.print(Version);
+  lcd.setCursor(3,2);
   lcd.print(freeMemory());
-  lcd.print(" bytes");
+  lcd.print(" bytes free");
   lcd.setCursor(0,3);
   lcd.print(" maglaras@gmail.com ");
   while (Keypress()!=4)
@@ -1150,12 +1172,12 @@ void UnknownRX()
 {
   lcd.setCursor(0,3);
   lcd.print("RX!                 ");
-  if (MIDIInChannel != 17)
-    DisplayNumber(1,16,Patch,3);      
-  else
-  {
-    ClearLine(1);
-  }
+//  if (MIDIInChannel != 17)
+//    DisplayNumber(1,16,Patch,3);      
+//  else
+//  {
+//    ClearLine(1);
+//  }
   delay(150);
   ClearLine(3);
 }
