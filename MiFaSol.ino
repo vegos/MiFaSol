@@ -59,8 +59,7 @@
 //
 
 
-
-#define Version "  Version 1.00  "                   // Current Version
+#define Version "    Version 1.10    "               // Current Version
 
 #include <EEPROM.h>                                  
 #include <Wire.h> 
@@ -69,7 +68,7 @@
 #include <MemoryFree.h>                              // http://playground.arduino.cc/Code/AvailableMemory
                                                       
 
-LiquidCrystal_I2C lcd(0x27,16,2);                    // 0x27 is the address of the I2C driver for the LCD Screen
+LiquidCrystal_I2C lcd(0x27,20,4);                    // 0x27 is the address of the I2C driver for the LCD Screen
 
 byte NoteChar[8] = { B00100, B00110, B00101, B00101, B01100, B11100, B11000, B00000 };    // Custom character for displaying a music note
 
@@ -101,14 +100,14 @@ long BacklightTimeOutMillis = 0;                     //
 
 #define LCDTimeOut  2500                             // Time to stay on LCD the pressed switch/exp. pedal value
 
-const char* MenuItems[8] = { "MIDI Out Channel",     // Array with the Main Menu items
-                             "MIDI In Channel ",
-                             "Set Footswitches", 
-                             "Expr. Pedal Mode",
-                             "Calibrate Expr. ",
-                             "Backlight Time  ",
-                             "Factory Reset   ",
-                             "Version/Memory  "
+const char* MenuItems[8] = { "MIDI Out Channel     ",    // Array with the Main Menu items
+                             "MIDI In Channel      ",
+                             "Set Footswitches     ", 
+                             "Expr. Pedal Mode     ",
+                             "Calibrate Exp. Pedal ",
+                             "Backlight Time       ",
+                             "Version/Memory       ",
+                             "Factory Reset        "
                            };
 
 
@@ -132,12 +131,13 @@ void setup()
   pinMode(IO9,INPUT_PULLUP);                         // Enable the internal pull-up resistor on pin
   lcd.clear();                                    
   lcd.setCursor(0,0);
-  lcd.print("    MiFaSol     ");
+  lcd.print("      MiFaSol       ");
   lcd.setCursor(0,1);
-  lcd.print("MIDI Controller ");
-  delay(1500);
-  lcd.setCursor(0,1);
-  lcd.print(" (c)2014 Magla  ");
+  lcd.print("  MIDI Controller   ");
+  lcd.setCursor(0,2);
+  lcd.print("      (c)2014       ");
+  lcd.setCursor(0,3);
+  lcd.print(" Antonis Maglaras   ");
   delay(1500);
   lcd.setCursor(0,1);
   lcd.print(Version);
@@ -159,24 +159,23 @@ void loop()
   if (Key != 0)
   {
     SendCommand(Key);                               // SEND Command based on keypress    
-    lcd.setCursor(0,1);
-    lcd.print("FS ");
+    lcd.setCursor(0,3);
+    lcd.print("Footswitch ");
     lcd.print(Key);
     FootswitchtTimeOutMillis=millis();
     while (Keypress()==Key)
       delay(1);
 delay(250);
-    lcd.setCursor(0,0);
-    lcd.print("Standby");
+    ClearLine(3);
   }    
 
 if (ExprPedalMode)
   if (PreviousExpPedal != ExpPedal())               // Exp. pedal is pressed, send the message
   {
     PreviousExpPedal = ExpPedal();
-    lcd.setCursor(9,1);
-    lcd.print("EXP");
-    DisplayNumber(1,13,PreviousExpPedal,3);
+    lcd.setCursor(0,2);
+    lcd.print("Expression Pedal     ");
+    DisplayNumber(2,17,PreviousExpPedal,3);
     switch (FootSwitch[10][0])
     {
       case 1:
@@ -201,13 +200,11 @@ if (ExprPedalMode)
     
   if (millis()-ExpTimeOutMillis > LCDTimeOut)
   {
-    lcd.setCursor(9,1);
-    lcd.print("       ");
+    ClearLine(2);
   }
   if (millis()-FootswitchtTimeOutMillis > LCDTimeOut)
   {
-    lcd.setCursor(0,1);
-    lcd.print("       ");
+    ClearLine(1);
   }  
   if (BacklightTimeOut<100)
   {
@@ -305,9 +302,8 @@ byte ExpPedal()
 // --- Display Command -----------------------------------------------------------------------------------------------------------
 void DisplayCommandType(byte type)
 {
-  lcd.setCursor(0,0);  
-  lcd.print("       ");
-  lcd.setCursor(0,0);
+  ClearLine(1);
+  lcd.setCursor(0,1);
   switch (type)
   {
     case 1:
@@ -348,7 +344,7 @@ void DisplayNumber(byte Line, byte Pos, byte Number, byte Decimals)
 void MainMenu()
 {  
   lcd.clear();
-  lcd.print("Setup Menu");
+  lcd.print("Main Menu");
   lcd.setCursor(0,1);
   byte Menu=1;
   boolean StayInside=true;
@@ -357,7 +353,7 @@ void MainMenu()
   while (StayInside)
   {
     lcd.setCursor(0,0);    
-    lcd.print("Setup Menu      ");
+    lcd.print("Main Menu            ");
     lcd.setCursor(0,1);
     lcd.print(MenuItems[Menu-1]);
     byte tmp=Keypress();
@@ -401,11 +397,11 @@ void MainMenu()
           case 6: // Set Backlight
             SetupBacklight();
             break;
-          case 7: // Factory Reset
-            FactoryReset();
-            break;
-          case 8: // Show version & free memory
+          case 7: // Show version & free memory
             ShowVersion();
+            break;
+          case 8: // Factory Reset
+            FactoryReset();
             break;
         }
 //        StayInside=false;
@@ -420,7 +416,7 @@ void MainMenu()
 // --- Show Enabled/Disable Mode -------------------------------------------------------------------------------------------------
 void ShowEnabledDisable(boolean tmpMode)
 {
-  lcd.setCursor(7,1);
+  lcd.setCursor(11,1);
   if (tmpMode)
     lcd.print("Enabled ");
   else
@@ -433,10 +429,10 @@ void ShowEnabledDisable(boolean tmpMode)
 void SetupBacklight()
 {
   lcd.setCursor(0,0);
-  lcd.print("Set Backlight   ");
+  lcd.print("Setup Backlight     ");
   
   lcd.setCursor(0,1);
-  lcd.print("Backlight       ");
+  lcd.print("Backlight           ");
   lcd.setCursor(13,1);
   byte tmpBacklight=BacklightTimeOut;
   boolean StayInside=true;
@@ -483,17 +479,24 @@ void SetupBacklight()
 void ShowBacklight(byte tmpBacklight)
 {
   lcd.setCursor(10,1);
-  if (tmpBacklight==100)
-    lcd.print("ON    ");
+  if (tmpBacklight==100)  
+    lcd.print("always ON ");
   else
     if (tmpBacklight==101)
-      lcd.print("OFF   ");   
+      lcd.print("always OFF");   
     else
     {
+      lcd.setCursor(10,1);
+      lcd.print("[");
       if (tmpBacklight<10)
         lcd.print("0");
       lcd.print(tmpBacklight);
-      lcd.print(" sec");
+      lcd.print("]");
+      lcd.setCursor(15,1);
+      if (tmpBacklight==1)
+        lcd.print(" sec ");
+      else
+        lcd.print(" secs");
     }
 }
 
@@ -503,11 +506,10 @@ void ShowBacklight(byte tmpBacklight)
 void SetupExprPedalMode()
 {
   lcd.setCursor(0,0);
-  lcd.print("Set Expr. Pedal ");
-  
+  lcd.print("Set Expression Pedal");  
   lcd.setCursor(0,1);
-  lcd.print("Mode  [        ]");
-  lcd.setCursor(13,1);
+  lcd.print("Status    [        ]");
+//lcd.setCursor(11,1);
   byte tmpExprPedalMode=ExprPedalMode;
   boolean StayInside=true;
   while (StayInside)
@@ -543,19 +545,19 @@ void SetupMIDIChannel(byte TotalChannels)
 {
   lcd.setCursor(0,0);
   if (TotalChannels==16)
-    lcd.print("MIDI Out Channel");
+    lcd.print("Set MIDI Out Channel");
   else
-    lcd.print("MIDI In Channel ");
+    lcd.print("Set MIDI In Channel ");
   lcd.setCursor(0,1);
   byte tmpChannel = 0;
   if (TotalChannels==16)
   {
-    lcd.print("Channel     [  ]");
+    lcd.print("MIDI Channel    [  ]");
     tmpChannel = MIDIOutChannel;
   }
   else
   {
-    lcd.print("Channel    [   ]");
+    lcd.print("MIDI Channel   [   ]");
     tmpChannel = MIDIInChannel;
   }
     
@@ -564,14 +566,14 @@ void SetupMIDIChannel(byte TotalChannels)
   while (StayInside)
   {
     if (TotalChannels==16)
-      DisplayNumber(1,13,tmpChannel,2);
+      DisplayNumber(1,17,tmpChannel,2);
     else
     {
       if (tmpChannel!=17)
-        DisplayNumber(1,12,tmpChannel,3);
+        DisplayNumber(1,16,tmpChannel,3);
       else
       {
-        lcd.setCursor(12,1);
+        lcd.setCursor(16,1);
         lcd.print("OFF");
       }
     }
@@ -629,9 +631,13 @@ void SetupMIDIChannel(byte TotalChannels)
 void FactoryReset()
 {
   lcd.setCursor(0,0);
-  lcd.print("    WARNING!    ");
+  lcd.print(" ***  WARNING!  *** ");
   lcd.setCursor(0,1);
-  lcd.print(" Are you sure?  ");
+  lcd.print("All settings will be");
+  lcd.setCursor(0,2);
+  lcd.print("erased-factory reset");
+  lcd.setCursor(0,3);
+  lcd.print("   Are you sure?    ");
   boolean StayInside=true;
   while (StayInside)
   {
@@ -654,9 +660,13 @@ void FactoryReset()
         EEPROM.write(40,1);
         EEPROM.write(50,7);
         lcd.setCursor(0,0);
-        lcd.print("System Restored!");
+        lcd.print("** FACTORY RESET ** ");
         lcd.setCursor(0,1);
-        lcd.print("** RESETTING! **");
+        lcd.print("Default settings are");
+        lcd.setCursor(0,2);
+        lcd.print("      restored!     ");
+        lcd.setCursor(0,3);
+        lcd.print("  ** RESETTING! **  ");
         delay(3000);
         SoftReset();
         while (true);
@@ -673,7 +683,7 @@ void FactoryReset()
 void FootSwitchMenu()
 {
   lcd.setCursor(0,0);
-  lcd.print("Select Switch   ");
+  lcd.print("Select Foot Switch  ");
   
   byte Item=1;
   boolean StayInside=true;
@@ -682,12 +692,12 @@ void FootSwitchMenu()
     lcd.setCursor(0,1);
     if (Item<10)
     {
-      lcd.print("Footswitch ");
+      lcd.print("Footswitch          ");
       lcd.print(Item);
       lcd.print("    ");
     }
     else         
-      lcd.print("Expr. Pedal     ");
+      lcd.print("Expression Pedal    ");
     byte tmp=Keypress();
     if (tmp!=0)
       delay(250);
@@ -751,15 +761,15 @@ void SetupFootSwitchAll(byte Switch, byte Mode)
   lcd.setCursor(0,1);
   if ((Switch>=1) && (Switch<=9))
   {
-    lcd.print("0");
+    lcd.print("Switch ");
     lcd.print(Switch);
-    lcd.print(": ");
+    lcd.print(" ");
     DisplayMode(Mode);
-    lcd.print("  [   ]");
+    lcd.print(" [   ]");
   }
   else
   {
-    lcd.print("EXP: ");
+    lcd.print("Exp.Pedal ");
     DisplayMode(Mode);
     lcd.print(" [   ]");
   }
@@ -767,7 +777,7 @@ void SetupFootSwitchAll(byte Switch, byte Mode)
   byte tmpSetting=FootSwitch[Switch-1][1]+1;
   while (StayInside)
   {
-    DisplayNumber(1,12,tmpSetting-1,3);
+    DisplayNumber(1,16,tmpSetting-1,3);
     byte tmp=Keypress();
     if (tmp!=0)
       delay(150);
@@ -803,22 +813,21 @@ void SetupFootSwitchAll(byte Switch, byte Mode)
 void ChooseFSOption(byte Switch)
 {
   lcd.setCursor(0,0);
-  lcd.print("Select Message  ");
+  lcd.print("Select MIDI MEssage ");
   lcd.setCursor(0,1);
   if (Switch==10)
-    lcd.print("EXP");
+    lcd.print("ExpPedal");
   else
   {
-    lcd.print("0");
+    lcd.print("Switch ");
     lcd.print(Switch);
-    lcd.print(":");
   }
   lcd.print(" Type [     ]");
   boolean StayInside=true;
   byte tmpMode=FootSwitch[Switch-1][0];
   while (StayInside)
   {
-    lcd.setCursor(10,1);
+    lcd.setCursor(14,1);
     DisplayMode(tmpMode);
     byte tmp=Keypress();
     if (tmp!=0)
@@ -868,15 +877,15 @@ void ChooseFSOption(byte Switch)
 void CalibratePedal()
 {
   lcd.setCursor(0,0);
-  lcd.print("Heel Down (Low) ");
+  lcd.print("Heel Down (Lowest)  ");
   lcd.setCursor(0,1);
-  lcd.print("Value     [    ]");
+  lcd.print("Value         [    ]");
   boolean StayInside=true;
   int tmpMinMax=1024;
   while (StayInside)
   {
     tmpMinMax=analogRead(EXP);
-    DisplayNumber(1,11,tmpMinMax,4);
+    DisplayNumber(1,15,tmpMinMax,4);
     byte tmp=Keypress();
     switch (tmp)
     {
@@ -893,15 +902,15 @@ void CalibratePedal()
   while (Keypress()!=0)
     delay(1);
   lcd.setCursor(0,0);
-  lcd.print("Toe Down (High) ");
+  lcd.print("Toe Down (Highest)  ");
   lcd.setCursor(0,1);
-  lcd.print("Value     [    ]");
+  lcd.print("Value         [    ]");
   StayInside=true;
   tmpMinMax=0;
   while (StayInside)
   {
     tmpMinMax=analogRead(EXP);
-    DisplayNumber(1,11,tmpMinMax,4);
+    DisplayNumber(1,15,tmpMinMax,4);
     byte tmp=Keypress();
     switch (tmp)
     {
@@ -923,14 +932,14 @@ void CalibratePedal()
 void ClearScreen()
 {
   lcd.clear();
-  if (MIDIInChannel!=17)
-    lcd.print("Standby    [   ]");
-  else
-    lcd.print("Standby         ");
+  lcd.setCursor(0,0);
+  lcd.print("     Magla MIDI     ");
   lcd.setCursor(0,1);
-  lcd.print("                ");
   if (MIDIInChannel!=17)
-    DisplayNumber(0,12,Patch,3);  
+  {
+    lcd.print("Program        (   )");
+    DisplayNumber(1,16,Patch,3);  
+  }
 }  
 
 
@@ -981,7 +990,7 @@ void Initialize()
 void SendCommand(byte Switch)
 {
   DisplayCommandType(FootSwitch[Switch-1][0]);
-  DisplayNumber(0,4,(FootSwitch[Switch-1][1]),3);  
+  DisplayNumber(1,6,(FootSwitch[Switch-1][1]),3);  
   switch (FootSwitch[Switch-1][0])
   {
     case 1:
@@ -1099,7 +1108,7 @@ void ProcessInput(byte StatusByte, byte DataByte1, byte DataByte2, byte Bytes)
         {
           Patch = DataByte1;
           // do some display here -- currently for debuging purposes
-          DisplayNumber(0,12,Patch,3);
+          DisplayNumber(1,16,Patch,3);
         }
         else
         {
@@ -1119,10 +1128,15 @@ void ProcessInput(byte StatusByte, byte DataByte1, byte DataByte2, byte Bytes)
 void ShowVersion()
 {
   lcd.clear();
+  lcd.print("       Version      ");
   lcd.print(Version);
-  lcd.setCursor(1,1);
+  lcd.setCursor(0,1);
+  lcd.print("     Free Memory    ");          
+  lcd.setCursor(6,2);
   lcd.print(freeMemory());
-  lcd.print(" bytes free");
+  lcd.print(" bytes");
+  lcd.setCursor(0,3);
+  lcd.print(" maglaras@gmail.com ");
   while (Keypress()!=4)
     delay(1);
   while (Keypress()==4)
@@ -1134,14 +1148,23 @@ void ShowVersion()
 // --- Not Recognized (or Not interested in that) MIDI Message -------------------------------------------------------------------
 void UnknownRX()
 {
-  lcd.setCursor(12,0);
-  lcd.print("RX!");
-  delay(150);
+  lcd.setCursor(0,3);
+  lcd.print("RX!                 ");
   if (MIDIInChannel != 17)
-    DisplayNumber(0,12,Patch,3);      
+    DisplayNumber(1,16,Patch,3);      
   else
   {
-    lcd.setCursor(11,0);
-    lcd.print("     ");
+    ClearLine(1);
   }
+  delay(150);
+  ClearLine(3);
+}
+
+
+
+// --- Clear Specific Line -------------------------------------------------------------------------------------------------------
+void ClearLine(byte line)
+{
+  lcd.setCursor(0,line);
+  lcd.print("                    ");
 }
