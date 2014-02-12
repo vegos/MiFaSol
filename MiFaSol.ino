@@ -59,46 +59,46 @@
 //
 
 
-#define Version "    Version 1.12    "               // Current Version
+#define Version "    Version 1.13    "                   // Current Version
 
 #include <EEPROM.h>                                  
 #include <Wire.h> 
-#include <LiquidCrystal_I2C.h>                       // LiquidCrystal_I2C V2.0 - Mario H. / atmega@xs4all.nl
-                                                     // http://www.xs4all.nl/~hmario/arduino/LiquidCrystal_I2C/LiquidCrystal_I2C.zip 
-#include <MemoryFree.h>                              // http://playground.arduino.cc/Code/AvailableMemory
+#include <LiquidCrystal_I2C.h>                           // LiquidCrystal_I2C V2.0 - Mario H. / atmega@xs4all.nl
+                                                         // http://www.xs4all.nl/~hmario/arduino/LiquidCrystal_I2C/LiquidCrystal_I2C.zip 
+#include <MemoryFree.h>                                  // http://playground.arduino.cc/Code/AvailableMemory
                                                       
 
-LiquidCrystal_I2C lcd(0x27,20,4);                    // 0x27 is the address of the I2C driver for the LCD Screen
+LiquidCrystal_I2C lcd(0x27,20,4);                        // 0x27 is the address of the I2C driver for the LCD Screen
 
 byte NoteChar[8] = { B00100, B00110, B00101, B00101, B01100, B11100, B11000, B00000 };    // Custom character for displaying a music note
 
-#define  IO1        5                                // Pin for Switch 1 -- Mandatory on my PCB
-#define  IO2        6                                // Pin for Switch 2 -- Mandatory on my PCB
-#define  IO3        7                                // Pin for Switch 3 -- Mandatory on my PCB
-#define  IO4        8                                // Pin for Switch 4 -- Mandatory on my PCB
-#define  IO5       13                                // Pin for Switch 5 -- Mandatory on my PCB
-#define  IO6       12                                // Pin for Switch 6 -- Mandatory on my PCB
-#define  IO7       11                                // Pin for Switch 7 -- Mandatory on my PCB
-#define  IO8       10                                // Pin for Switch 8 -- Mandatory on my PCB
-#define  IO9        9                                // Pin for Switch 9 -- Mandatory on my PCB
-#define  EXP       A0                                // Pin for Expr. Pedal -- Mandatory on my PCB
+#define  IO1        5                                    // Pin for Switch 1 -- Mandatory on my PCB
+#define  IO2        6                                    // Pin for Switch 2 -- Mandatory on my PCB
+#define  IO3        7                                    // Pin for Switch 3 -- Mandatory on my PCB
+#define  IO4        8                                    // Pin for Switch 4 -- Mandatory on my PCB
+#define  IO5       13                                    // Pin for Switch 5 -- Mandatory on my PCB
+#define  IO6       12                                    // Pin for Switch 6 -- Mandatory on my PCB
+#define  IO7       11                                    // Pin for Switch 7 -- Mandatory on my PCB
+#define  IO8       10                                    // Pin for Switch 8 -- Mandatory on my PCB
+#define  IO9        9                                    // Pin for Switch 9 -- Mandatory on my PCB
+#define  EXP       A0                                    // Pin for Expr. Pedal -- Mandatory on my PCB
 
-volatile byte PreviousExpPedal = 0;                  // Expression Pedal previous reading
-volatile int MinExp = 0;                             // Expression Pedal Minimum reading
-volatile int MaxExp = 1024;                          // Expression Pedal Maximum reading
+volatile byte PreviousExpPedal = 0;                      // Expression Pedal previous reading
+volatile int MinExp = 0;                                 // Expression Pedal Minimum reading
+volatile int MaxExp = 1024;                              // Expression Pedal Maximum reading
 
-volatile byte MIDIInChannel = 1;                     // MIDI In Channel (1..17 -- 17 is Disabled MIDI In)
-volatile byte MIDIOutChannel = 1;                    // MIDI Out Channel (1..16)
-volatile byte BacklightTimeOut = 15;                 // Valid from 0..99 sec, 100 for Always On, 101 for Always Off.
-volatile byte FootSwitch[10][2];                     // Array for storing settings for foot switches
-volatile byte Patch = 0;                             // Current patch
-volatile boolean ExprPedalMode = false;              // Expr. Pedal is active
+volatile byte MIDIInChannel = 1;                         // MIDI In Channel (1..17 -- 17 is Disabled MIDI In)
+volatile byte MIDIOutChannel = 1;                        // MIDI Out Channel (1..16)
+volatile byte BacklightTimeOut = 15;                     // Valid from 0..99 sec, 100 for Always On, 101 for Always Off.
+volatile byte FootSwitch[10][2];                         // Array for storing settings for foot switches
+volatile byte Patch = 0;                                 // Current patch
+volatile boolean ExprPedalMode = false;                  // Expr. Pedal is active
 
-long ExpTimeOutMillis = 0;                           //
-long FootswitchtTimeOutMillis = 0;                   // Storing millis for calculations
-long BacklightTimeOutMillis = 0;                     //
+long ExpTimeOutMillis = 0;                               //
+long FootswitchtTimeOutMillis = 0;                       // Storing millis for calculations
+long BacklightTimeOutMillis = 0;                         //
 
-#define LCDTimeOut  2500                             // Time to stay on LCD the pressed switch/exp. pedal value
+#define LCDMessageTimeOut  15                            // Time to stay on LCD the pressed switch/exp. pedal value
 
 const char* MenuItems[8] = { "MIDI Out Channel     ",    // Array with the Main Menu items
                              "MIDI In Channel      ",
@@ -115,21 +115,21 @@ const char* MenuItems[8] = { "MIDI Out Channel     ",    // Array with the Main 
 // --- Setup procedure -----------------------------------------------------------------------------------------------------------
 void setup()
 {
-  Serial.begin(31250);                               // 31250 bauds is the MIDI speed
-  Initialize();                                      // Initialize Values/read them from EEPROM
-  lcd.init();                                        // Initialize LCD 
-  lcd.createChar(1,NoteChar);                        // Create & Assign a custom character (Music Note)
-  BacklightCheck();                                  // Check for Backlight setting
-  pinMode(IO1,INPUT_PULLUP);                         // Enable the internal pull-up resistor on pin
-  pinMode(IO2,INPUT_PULLUP);                         // Enable the internal pull-up resistor on pin
-  pinMode(IO3,INPUT_PULLUP);                         // Enable the internal pull-up resistor on pin
-  pinMode(IO4,INPUT_PULLUP);                         // Enable the internal pull-up resistor on pin
-  pinMode(IO5,INPUT_PULLUP);                         // Enable the internal pull-up resistor on pin
-  pinMode(IO6,INPUT_PULLUP);                         // Enable the internal pull-up resistor on pin
-  pinMode(IO7,INPUT_PULLUP);                         // Enable the internal pull-up resistor on pin
-  pinMode(IO8,INPUT_PULLUP);                         // Enable the internal pull-up resistor on pin
-//  pinMode(IO9,INPUT_PULLUP);                         // Enable the internal pull-up resistor on pin
-  pinMode(IO9,OUTPUT);                               // Setup the IO9 as Output (to turn on LED)
+  Serial.begin(31250);                                   // 31250 bauds is the MIDI speed
+  Initialize();                                          // Initialize Values/read them from EEPROM
+  lcd.init();                                            // Initialize LCD 
+  lcd.createChar(1,NoteChar);                            // Create & Assign a custom character (Music Note)
+  BacklightCheck();                                      // Check for Backlight setting
+  pinMode(IO1,INPUT_PULLUP);                             // Enable the internal pull-up resistor on pin
+  pinMode(IO2,INPUT_PULLUP);                             // Enable the internal pull-up resistor on pin
+  pinMode(IO3,INPUT_PULLUP);                             // Enable the internal pull-up resistor on pin
+  pinMode(IO4,INPUT_PULLUP);                             // Enable the internal pull-up resistor on pin
+  pinMode(IO5,INPUT_PULLUP);                             // Enable the internal pull-up resistor on pin
+  pinMode(IO6,INPUT_PULLUP);                             // Enable the internal pull-up resistor on pin
+  pinMode(IO7,INPUT_PULLUP);                             // Enable the internal pull-up resistor on pin
+  pinMode(IO8,INPUT_PULLUP);                             // Enable the internal pull-up resistor on pin
+//  pinMode(IO9,INPUT_PULLUP);                           // Enable the internal pull-up resistor on pin
+  pinMode(IO9,OUTPUT);                                   // Setup the IO9 as Output (to turn on LED)
   lcd.clear();                                    
   lcd.setCursor(0,0);
   lcd.print("      MiFaSol       ");
@@ -159,7 +159,7 @@ void loop()
   byte Key = Keypress();
   if (Key != 0)
   {
-    SendCommand(Key);                               // SEND Command based on keypress    
+    SendCommand(Key);                                    // SEND Command based on keypress    
     lcd.setCursor(0,3);
     lcd.print("Footswitch ");
     lcd.print(Key);
@@ -171,7 +171,7 @@ delay(250);
   }    
 
 if (ExprPedalMode)
-  if (PreviousExpPedal != ExpPedal())               // Exp. pedal is pressed, send the message
+  if (PreviousExpPedal != ExpPedal())                    // Exp. pedal is pressed, send the message
   {
     PreviousExpPedal = ExpPedal();
     lcd.setCursor(0,2);
@@ -199,11 +199,11 @@ if (ExprPedalMode)
     if (Serial.available())
       CheckMIDI(); // Read midi   
     
-  if (millis()-ExpTimeOutMillis > LCDTimeOut)
+  if (millis()-ExpTimeOutMillis > (LCDMessageTimeOut*1000))
   {
     ClearLine(2);
   }
-  if (millis()-FootswitchtTimeOutMillis > LCDTimeOut)
+  if (millis()-FootswitchtTimeOutMillis > (LCDMessageTimeOut*1000))
   {
     ClearLine(1);
   }  
@@ -230,6 +230,32 @@ byte Keypress()
       return 0;
     }    
   else   
+
+
+// - testing -----------------------------------------------------------------------------
+if ((digitalRead(IO2)==LOW) && (digitalRead(IO3)==LOW))
+{
+  Patch-=1;
+  if (Patch<0)
+    Patch=127;
+  MIDIProgramChange(Patch);
+  while ((digitalRead(IO2)==LOW) || (digitalRead(IO3)==LOW))
+    delay(1);
+}
+else
+if ((digitalRead(IO2)==LOW) && (digitalRead(IO4)==LOW))
+{
+  Patch+=1;
+  if (Patch>127)
+    Patch=0;
+  MIDIProgramChange(Patch);
+  while ((digitalRead(IO2)==LOW) || (digitalRead(IO3)==LOW))
+    delay(1);
+}
+else
+// ---------------------------------------------------------------------------------------
+
+
     if ((digitalRead(IO1)==LOW) && (digitalRead(IO2)==HIGH))
     {
       BacklightCheck();
