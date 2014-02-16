@@ -9,7 +9,7 @@
 //          ©2014, Antonis Maglaras :: maglaras@gmail.com             |
 //                         MIDI Controller                            |  More info: http://www.facebook.com/mifasolproject
 //                    Version is .. still beta :)                     |  Code: http://github.com/vegos/MiFaSol
-//
+//                                                                    |  GitHub Micro Site: http://vegos.github.io/MiFaSol
 //
 // ------- Some Documentation ----------------------------------------------------------------------------------------------------
 //
