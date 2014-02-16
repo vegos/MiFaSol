@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset='utf-8'>
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <link href='https://fonts.googleapis.com/css?family=Chivo:900' rel='stylesheet' type='text/css'>
+    <link rel="stylesheet" type="text/css" href="stylesheets/stylesheet.css" media="screen" />
+    <link rel="stylesheet" type="text/css" href="stylesheets/pygment_trac.css" media="screen" />
+    <link rel="stylesheet" type="text/css" href="stylesheets/print.css" media="print" />
+    <!--[if lt IE 9]>
+    <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <title>MiFaSol - MIDI Footswitch/Controoler by vegos</title>
+  </head>
+
+  <body>
+    <div id="container">
+      <div class="inner">
+
+        <header>
+          <h1>MiFaSol - MIDI Footswitch/Controoler</h1>
+          <h2>MIDI Controller</h2>
+        </header>
+
+        <section id="downloads" class="clearfix">
+          <a href="https://github.com/vegos/MiFaSol/zipball/master" id="download-zip" class="button"><span>Download .zip</span></a>
+          <a href="https://github.com/vegos/MiFaSol/tarball/master" id="download-tar-gz" class="button"><span>Download .tar.gz</span></a>
+          <a href="https://github.com/vegos/MiFaSol" id="view-on-github" class="button"><span>View on GitHub</span></a>
+        </section>
+
+        <hr>
+
+        <section id="main_content">
+          <h1>
+<a name="mifasol" class="anchor" href="#mifasol"><span class="octicon octicon-link"></span></a>MiFaSol</h1>
+
+<h2>
+<a name="midi-footswitch-controoler" class="anchor" href="#midi-footswitch-controoler"><span class="octicon octicon-link"></span></a>MIDI FootSwitch Controoler</h2>
+
+<h2>
+<a name="2014-antonis-maglaras" class="anchor" href="#2014-antonis-maglaras"><span class="octicon octicon-link"></span></a>©2014, Antonis Maglaras</h2>
+
+<p><br></p>
+
+<h3>
+<a name="history" class="anchor" href="#history"><span class="octicon octicon-link"></span></a>History</h3>
+
+<p>I was in the need for a MIDI Controller for my rack-mounted guitar processor. <br>
+What easier to do with an Arduino?<br><br>
+The basic idea was to add some footswitches, a MIDI Out and to send whatever MIDI messages I wanted.<br>
+After some testing and coding, here is the latest version of the project:<br><br>
+A custom PCB (actually, an Arduino) with MIDI In &amp; MIDI Out/Thru.<br>
+LCD (HD44780) 4x20 with I2C Driver.<br>
+8 Foot switches (momentary).<br>
+Input for any passive volume pedal (for use as expression pedal).<br><br><br><br></p>
+
+<h3>
+<a name="what-you-can-do" class="anchor" href="#what-you-can-do"><span class="octicon octicon-link"></span></a>What you can do</h3>
+
+<p>First of all, note that all footswitches are programmable.<br>
+You can assign to each one to send a Control Change/Program Change/Note On/Note Off MIDI Message.<br>
+For example, you can use foot switch #1 to send "Program Change 5", foot switch #2 to send "Note C4 On", foot switch #3 "Control Change 7 with value 127", foot switch #4 "Note A3 Off" etc.<br>
+Also if you attach a volume pedal, you can program it to send the same commands, with variable parameter depending on the pressed level. E.g. you can send CC #7 with values from 0 to 127, realtime.<br>
+For fully compatibility, the expression pedal can be calibrated.<br><br>
+Another one feature, is the MIDI In. It's nice, if the MIDI appliance is sending back information for the current program. You are pressing "Next" program from the MIDI Controller, then the "Next" program from your MIDI appliance and then again "Next" program from the MIDI Controller, and you are always go to the next program.<br><br><br><br></p>
+
+<h3>
+<a name="programming" class="anchor" href="#programming"><span class="octicon octicon-link"></span></a>Programming</h3>
+
+<p>To program the MIDI Controller you don't need a PC. Everything is done via 4 foot switches and the LCD display.<br><br>
+Press the footswitches #1 &amp; #2 at the same time to enter the Main Menu.<br>
+Foot switch #1 acts as "Previous" value.<br>
+Foot switch #2 acts as "Next" value.<br>
+Foot switch #3 acts as "Enter/Accept".<br>
+Foot switch #4 acts as "Escape/Cancel".<br><br><br>
+The menu items are:<br><br></p>
+
+<ul>
+<li>MIDI Out Channgel.<br>
+The Channel that is used for sending the commands.<br><ul>
+<li>To be included in a next version, a feature to enable MIDI Out as MIDI Thru too.<br>
+Will forward every MIDI message it receives from MIDI In (if it's enabled).<br><br>
+</li>
+</ul>
+</li>
+<li>MIDI In channel.<br>
+The Channel that the controller is listening or disable the MIDI In feature.<br>
+When you enable the MIDI In, the controller will accept and display the Program Change values.<br>
+All other MIDI messages are ignored.<br><br>
+</li>
+<li>Footswitches Settings.<br>
+You can program what type of message every footswitch will send.<br><br>
+</li>
+<li>Expression Pedal Mode.<br>
+You can enable or disable the pedal input.<br><br>
+</li>
+<li>Expression Pedal Calibration.<br>
+You can calibrate the pedal for full response.<br><br>
+</li>
+<li>Backlight Time.<br>
+You can set the backlight timeout of the LCD (automatic off) from 1-99 seconds, Always On or Always Off.<br><br>
+</li>
+<li>Version/Memory.<br>
+Mostly for debugging. You can see what is the current software version and the available (free) memory.<br><br>
+</li>
+<li>Factory Reset.<br>
+You can reset all settings to default values. <br><br><br><br>
+### Board Information
+The PCB is small. 75x50mm. It includes low-cost THT parts.<br>
+It has a "PROGRAM" header, for connecting a FTDI adapter for uploading the software,<br>
+a double-DIP Switch, for changing from PROGRAM mode to MIDI mode (they share the same pin, so they cannot be used at the same time).<br><br>
+The board can be powered by 7-18V DC (note that it has NOT reverse polarity protection!).<br><br><br><br>
+### Parts List
+1 x ATmega328<br>
+1 x 6N139 Optocoupler<br>
+1 x 16MHz Crystal<br>
+2 x 22pF Ceramic Capacitors<br>
+2 x 220μF Electrolytic Capacitors<br>
+1 x 100nF Polyester Capacitor<br>
+1 x 7805 Voltage Regulator<br>
+1 x LED<br>
+1 x 1N4148 Diode<br>
+2 x DIP Switchs<br>
+2 x MIDI PCB Female Jacks<br>
+1 x 4.7kΩ Resistor<br>
+2 x 10kΩ Resistors<br>
+4 x 220Ω Resistors<br>
+1 x Push switch (momentary button)<br><br><br><br>
+### To Do
+A lot of stuff, but have no time yet :)<br>
+Stay tuned!<br><br>
+</li>
+</ul>
+        </section>
+
+        <footer>
+          MiFaSol - MIDI Footswitch/Controoler is maintained by <a href="https://github.com/vegos">vegos</a><br>
+          This page was generated by <a href="http://pages.github.com">GitHub Pages</a>. Tactile theme by <a href="https://twitter.com/jasonlong">Jason Long</a>.
+        </footer>
+
+        
+      </div>
+    </div>
+  </body>
+</html>
