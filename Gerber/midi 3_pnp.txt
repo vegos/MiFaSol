@@ -1,0 +1,67 @@
+*Pick And Place List
+*Company=
+*Author=
+*eMail=
+*
+*Project=midi 3
+*Date=14:56:05
+*CreatedBy=Fritzing 0.8.7b.01.24.1bf5
+*
+*
+*Coordinates in mm, always center of component
+*Origin 0/0=Lower left corner of PCB
+*Rotation in degree (0-360, math. pos.)
+*
+*No;Value;Package;X;Y;Rotation;Side;Name
+1;;;63.302;-47.8695;0;Bottom;TXT6
+2;;THT;7.89234;-45.9819;90;Bottom;DC IN
+3;;;2.17725;-47.8869;0;Bottom;Hole4
+4;;;38.2749;-2.2512;-90;Bottom;TXT1
+5;;;42.3338;-5.07653;-90;Bottom;TXT1
+6;;;2.96644;-14.5231;-90;Bottom;TXT6
+7;;THT;24.4023;-45.9819;90;Bottom;GND
+8;;3 mm [THT];4.77337;-24.3917;90;Bottom;LED
+9;100nF;200 mil [THT, multilayer];11.7023;-14.2319;180;Bottom;22pF
+10;;THT;37.7373;-45.9819;90;Bottom;PROGRAM
+11;1µF;100 mil [THT, electrolytic];7.89234;-40.2669;180;Bottom;220ÏF
+12;;;39.2404;-43.4348;-90;Bottom;TXT1
+13;220;THT;37.7373;-18.0419;-90;Bottom;220R
+14;;;49.241;-33.7909;0;Bottom;TXT2
+15;;;2.17725;-1.53196;0;Bottom;Hole3
+16;220;THT;40.2773;-18.0419;-90;Bottom;10k
+17;220;THT;54.2473;-19.3119;90;Bottom;220R
+18;;;54.2472;-1.53196;0;Bottom;Hole2
+19;;;11.6791;-4.36295;0;Bottom;TXT4
+20;;THT;16.7823;-2.16686;90;Bottom;FOOT SWITCHES
+21;;;47.4923;-5.08161;-90;Bottom;TXT1
+22;220;THT;17.4173;-32.6469;-90;Bottom;10k
+23;;;49.2229;-34.9566;0;Bottom;TXT2
+24;5V;TO220 [THT];9.16234;-32.2659;0;Bottom;7805
+25;220;THT;35.1973;-18.0419;90;Bottom;R1
+26;;;44.9629;-5.10243;-90;Bottom;Vcc
+27;;300 mil [THT];54.2473;-8.54226;90;Bottom;D1
+28;1µF;100 mil [THT, electrolytic];13.6073;-24.3919;-90;Bottom;220ÏF
+29;220;THT;42.1823;-35.1869;-90;Bottom;220R
+30;100nF;200 mil [THT, multilayer];11.7023;-19.3119;180;Bottom;22pF
+31;220;THT;39.6423;-35.1869;-90;Bottom;220R
+32;;;6.54923;-14.3289;-90;Bottom;TXT6
+33;;din_5_female_support;66.0974;-37.536;-90;Bottom;MIDI OUT
+34;220;THT;19.9573;-28.2019;-90;Bottom;100n
+35;;;72.6622;-47.8869;0;Bottom;Hole1
+36;;din_5_female_support;66.0974;-15.3111;-90;Bottom;MIDI IN
+37;;;49.2867;-36.2287;0;Bottom;DIP Switches:
+38;;THT;34.5623;-2.16686;90;Bottom;EXP.
+39;;;28.4434;-4.96702;-90;Bottom;TXT1
+40;;;34.1279;-43.1678;-90;Bottom;TXT1
+41;;THT;45.9923;-2.16686;-90;Bottom;I2C
+42;;THT;18.0524;-16.6817;-90;Bottom;16MHz
+43;;;4.87029;-14.5296;-90;Bottom;TXT6
+44;;;50.065;-5.09318;-90;Bottom;TXT1
+45;;[THT];16.2223;-43.0969;0;Bottom;RESET
+46;;;23.2082;-4.34828;0;Bottom;TXT4
+47;;DIP28 (Dual Inline) [THT];26.9339;-26.2541;0;Bottom;ATmega328
+48;;;11.3862;-45.9786;-90;Bottom;TXT1
+49;;dipswitch-02;48.5323;-42.1719;0;Bottom;DIP SW
+50;220;THT;2.81234;-35.1869;-90;Bottom;4k7
+51;;;36.6877;-43.4348;-90;Bottom;TXT1
+52;;THT;47.2623;-19.3119;180;Bottom;6N139
