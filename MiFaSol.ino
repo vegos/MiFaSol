@@ -95,11 +95,11 @@ volatile int Patch = 0;                                  // Current patch
 volatile boolean ExprPedalMode = false;                  // Expr. Pedal is active
 
 long ExpTimeOutMillis = 0;                               //
-long FootswitchtTimeOutMillis = 0;                       // Storing millis for calculations
+long FootswitchTimeOutMillis = 0;                        // Storing millis for calculations
 long BacklightTimeOutMillis = 0;                         //
 
-#define LCDMessageTimeOut  15                            // Time to stay on LCD the pressed switch/exp. pedal value
-const char* MenuItems[8] = { "MIDI Out Channel    ",    // Array with the Main Menu items
+#define LCDMessageTimeOut  10                            // Time to stay on LCD the pressed switch/exp. pedal value
+const char* MenuItems[8] = { "MIDI Out Channel    ",     // Array with the Main Menu items
                              "MIDI In Channel     ",
                              "Setup Foot switches ", 
                              "Expr. Pedal Mode    ",
@@ -163,7 +163,7 @@ void loop()
     lcd.setCursor(0,3);
     lcd.print("Footswitch ");
     lcd.print(Key);
-    FootswitchtTimeOutMillis=millis();
+    FootswitchTimeOutMillis=millis();
     TurnLEDOff();
     while (Keypress()==Key)
       delay(1);
@@ -205,7 +205,7 @@ if (ExprPedalMode)
   {
     ClearLine(2);
   }
-  if (millis()-FootswitchtTimeOutMillis > (LCDMessageTimeOut*1000))
+  if (millis()-FootswitchTimeOutMillis > (LCDMessageTimeOut*1000))
   {
     ClearLine(1);
   }  
@@ -1232,5 +1232,5 @@ void ShowProgram(byte pgm)
   lcd.setCursor(0,1);
   lcd.print("Program        (   )");
   DisplayNumber(1,16,pgm,3);    
-  FootswitchtTimeOutMillis=millis();   
+  FootswitchTimeOutMillis=millis();   
 }
