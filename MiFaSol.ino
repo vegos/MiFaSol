@@ -59,7 +59,7 @@
 // 
 
 
-#define Version "    Version 1.20    "                   // Current Version
+#define Version "    Version 1.22    "                   // Current Version
 
 #include <EEPROM.h>                                  
 #include <Wire.h> 
@@ -130,20 +130,18 @@ void setup()
   pinMode(IO9,OUTPUT);                                   // Setup the IO9 as Output (Rx/TX LED)
   lcd.clear();                                    
   lcd.setCursor(0,0);
+             
   lcd.print("      MiFaSol       ");
   lcd.setCursor(0,1);
   lcd.print("  MIDI Controller   ");
   lcd.setCursor(0,2);
   lcd.print("      (c)2014       ");
   lcd.setCursor(0,3);
-  lcd.print(" Antonis Maglaras   ");
-  delay(1000);
+  lcd.print("  Antonis Maglaras  ");
+  delay(1500);
   lcd.setCursor(0,2);
   lcd.print(Version);
-  delay(1000);
-  lcd.setCursor(0,1);
-  lcd.print(Version);
-  delay(1000);
+  delay(1500);
   BacklightTimeOutMillis=millis();
   if (BacklightTimeOut==101)
     lcd.noBacklight();
@@ -169,7 +167,6 @@ void loop()
     TurnLEDOff();
     while (Keypress()==Key)
       delay(1);
-//delay(250);
     ClearLine(3);
   }    
 
@@ -272,10 +269,6 @@ byte Keypress()
                 if (Patch<0)
                   Patch=127;
                 MIDIProgramChange(Patch);                
-                lcd.setCursor(0,1);
-                lcd.print("Program        (   )");
-                DisplayNumber(1,16,Patch,3);  
-                FootswitchtTimeOutMillis=millis();
                 BacklightCheck();
                 TurnLEDOff();
                 return 0;
@@ -288,10 +281,6 @@ byte Keypress()
                   if (Patch>127)
                     Patch=0;
                   MIDIProgramChange(Patch);     
-                  lcd.setCursor(0,1);
-                  lcd.print("Program        (   )");
-                  DisplayNumber(1,16,Patch,3);  
-                  FootswitchtTimeOutMillis=millis();
                   BacklightCheck();
                   TurnLEDOff();
                   return 0;
@@ -488,8 +477,12 @@ void SetupBacklight()
           BacklightTimeOutMillis=millis();
         }
         StayInside=false;        
+        while (Keypress()==3) 
+          delay(1);        
         break;
       case 4: // back
+        while (Keypress()==4) 
+          delay(1);      
         StayInside=false;
         break;
     }
@@ -553,8 +546,12 @@ void SetupExprPedalMode()
         ExprPedalMode=tmpExprPedalMode;
         EEPROM.write(6,ExprPedalMode);  // write to eeprom
         StayInside=false;        
+        while (Keypress()==3) 
+          delay(1);        
         break;
       case 4: // back
+        while (Keypress()==4) 
+          delay(1);      
         StayInside=false;
         break;
     }
@@ -638,9 +635,13 @@ void SetupMIDIChannel(byte TotalChannels)
           MIDIInChannel=tmpChannel;
           EEPROM.write(2,MIDIInChannel);
         }
+        while (Keypress()==3) 
+          delay(1);        
         StayInside=false;                  
         break;
       case 4: // back
+        while (Keypress()==4) 
+          delay(1);      
         StayInside=false;
         break;
     }
@@ -697,6 +698,8 @@ void FactoryReset()
         SoftReset();
         while (true);
       case 4:
+        while (Keypress()==4) 
+          delay(1);      
         StayInside=false;
         break;
     }
@@ -759,6 +762,8 @@ void FootSwitchMenu()
         ClearLine(2);
         ClearLine(3);
         StayInside=false;
+        while (Keypress()==4) 
+          delay(1);        
         break;
     }
   }
@@ -941,6 +946,8 @@ void CalibratePedal()
         StayInside=false;
         break;
       case 4: // back
+        while (Keypress()==4) 
+          delay(1);      
         StayInside=false;
         break;
     }
@@ -961,11 +968,15 @@ void CalibratePedal()
     switch (tmp)
     {
       case 3: // enter
+        while (Keypress()==3) 
+          delay(1);      
         MaxExp = tmpMinMax;
         WriteToMem(13,MaxExp);
         StayInside=false;
         break;
       case 4: // back
+        while (Keypress()==4) 
+          delay(1);
         StayInside=false;
         break;
     }
@@ -983,8 +994,7 @@ void ClearScreen()
   lcd.setCursor(0,1);
   if (MIDIInChannel!=17)
   { 
-    lcd.print("Program        (   )");
-    DisplayNumber(1,16,Patch,3);  
+    ShowProgram(Patch);    
   }
 }  
 
@@ -1097,6 +1107,7 @@ void MIDIProgramChange(byte tmpPatch)
   Serial.write(0xC0 + (MIDIOutChannel - 1));
   Serial.write(tmpPatch);
   Patch = tmpPatch;
+  ShowProgram(Patch);
 }
 
 
@@ -1153,12 +1164,8 @@ void ProcessInput(byte StatusByte, byte DataByte1, byte DataByte2)
   byte TopNibble = StatusByte >> 4;
   if ((TopNibble == B1100) && (BottomNibble == (MIDIInChannel - 1)))                          // Program Change is B1100
   {
-    lcd.setCursor(0,1);
-    lcd.print("Program        (   )");
-    DisplayNumber(1,16,Patch,3);  
-    FootswitchtTimeOutMillis=millis();
     Patch = DataByte1;
-    DisplayNumber(1,16,Patch,3);
+    ShowProgram(Patch);
   }
   else
     if ((TopNibble == B1011) && (BottomNibble == (MIDIInChannel -1)))                         // Control Change (CC) is B1011
@@ -1215,4 +1222,15 @@ void TurnLEDOn()
 void TurnLEDOff()
 {
   digitalWrite(IO9, LOW);
+}
+
+
+
+// --- Show Current Program/Patch on LCD -----------------------------------------------------------------------------------------
+void ShowProgram(byte pgm)
+{
+  lcd.setCursor(0,1);
+  lcd.print("Program        (   )");
+  DisplayNumber(1,16,pgm,3);    
+  FootswitchtTimeOutMillis=millis();   
 }
