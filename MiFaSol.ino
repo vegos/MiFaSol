@@ -54,12 +54,12 @@
 //   3: Enter
 //   4: Back/ESC/Cancel/Whatever
 //
-// 5 & 6: Previous Program / Patch 
-// 5 & 7: Next Program / Patch 
-//
+// 6: Previous Program / Patch 
+// 7: Next Program / Patch 
+// 
 
 
-#define Version "    Version 1.19    "                   // Current Version
+#define Version "    Version 1.20    "                   // Current Version
 
 #include <EEPROM.h>                                  
 #include <Wire.h> 
@@ -91,7 +91,7 @@ volatile byte MIDIInChannel = 1;                         // MIDI In Channel (1..
 volatile byte MIDIOutChannel = 1;                        // MIDI Out Channel (1..16)
 volatile byte BacklightTimeOut = 15;                     // Valid from 0..99 sec, 100 for Always On, 101 for Always Off.
 volatile byte FootSwitch[10][2];                         // Array for storing settings for foot switches
-volatile int Patch = 0;                                 // Current patch
+volatile int Patch = 0;                                  // Current patch
 volatile boolean ExprPedalMode = false;                  // Expr. Pedal is active
 
 long ExpTimeOutMillis = 0;                               //
@@ -137,7 +137,10 @@ void setup()
   lcd.print("      (c)2014       ");
   lcd.setCursor(0,3);
   lcd.print(" Antonis Maglaras   ");
-  delay(1500);
+  delay(1000);
+  lcd.setCursor(0,2);
+  lcd.print(Version);
+  delay(1000);
   lcd.setCursor(0,1);
   lcd.print(Version);
   delay(1000);
@@ -232,32 +235,6 @@ byte Keypress()
       return 0;
     }    
   else   
-
-/*
-// - testing -----------------------------------------------------------------------------
-if ((digitalRead(IO5)==LOW) && (digitalRead(IO6)==LOW))
-{
-  Patch-=1;
-  if (Patch<0)
-    Patch=127;
-  MIDIProgramChange(Patch);
-  while ((digitalRead(IO5)==LOW) || (digitalRead(IO6)==LOW))
-    delay(1);
-}
-else
-if ((digitalRead(IO5)==LOW) && (digitalRead(IO7)==LOW))
-{
-  Patch+=1;
-  if (Patch>127)
-    Patch=0;
-  MIDIProgramChange(Patch);
-  while ((digitalRead(IO5)==LOW) || (digitalRead(IO7)==LOW))
-    delay(1);
-}
-else
-// ---------------------------------------------------------------------------------------
-*/
-
     if ((digitalRead(IO1)==LOW) && (digitalRead(IO2)==HIGH))
     {
       BacklightCheck();
@@ -302,7 +279,6 @@ else
                 BacklightCheck();
                 TurnLEDOff();
                 return 0;
-//                return 6;
               }
               else
                 if (digitalRead(IO7)==LOW)
@@ -319,7 +295,6 @@ else
                   BacklightCheck();
                   TurnLEDOff();
                   return 0;
-//                  return 7;
                 }
                 else
                   if (digitalRead(IO8)==LOW)
@@ -328,13 +303,7 @@ else
                     return 8;
                   }
                   else
-//                    if (digitalRead(IO9)==LOW)
-//                    {
-//                      BacklightCheck();
-//                      return 9;
-//                    }
-//                    else
-                      return 0;
+                    return 0;
 }
   
   
@@ -404,7 +373,6 @@ void MainMenu()
   while (StayInside)
   {
     lcd.setCursor(0,0);    
-    //         01234567890123456789
     lcd.print("Main Menu           ");
     lcd.setCursor(0,1);
     lcd.print(MenuItems[Menu-1]);
@@ -460,7 +428,6 @@ void MainMenu()
             FactoryReset();
             break;
         }
-//        StayInside=false;
         break;
     }
   }
@@ -485,11 +452,9 @@ void ShowEnabledDisable(boolean tmpMode)
 void SetupBacklight()
 {
   lcd.setCursor(0,0);
-  //         01234567890123456789
   lcd.print("Setup Backlight     ");
   
   lcd.setCursor(0,1);
-  //         01234567890123456789
   lcd.print("Backlight           ");
   lcd.setCursor(10,1);
   byte tmpBacklight=BacklightTimeOut;
@@ -564,7 +529,6 @@ void ShowBacklight(byte tmpBacklight)
 void SetupExprPedalMode()
 {
   lcd.setCursor(0,0);
-  //         01234567890123456789
   lcd.print("Set Expression Pedal");  
   lcd.setCursor(0,1);
   lcd.print("Status    [        ]");
@@ -620,7 +584,6 @@ void SetupMIDIChannel(byte TotalChannels)
     tmpChannel = MIDIInChannel;
   }
     
-//  byte tmpChannel = MIDIChannel;
   boolean StayInside=true;
   while (StayInside)
   {
@@ -754,7 +717,7 @@ void FootSwitchMenu()
   {
     lcd.setCursor(0,1);
     if (Item<10)
-    { //         01234567890123456789
+    { 
       lcd.print("Footswitch ");
       lcd.print(Item);
       lcd.print("        ");
@@ -892,7 +855,6 @@ void SetupFootSwitchAll(byte Switch, byte Mode)
 void ChooseFSOption(byte Switch)
 {
   lcd.setCursor(0,0);
-  //         01234567890123456789
   lcd.print("Select MIDI MEssage ");
   lcd.setCursor(0,1);
   if (Switch==10)
@@ -1017,10 +979,10 @@ void ClearScreen()
 {
   lcd.clear();
   lcd.setCursor(0,0);
-  lcd.print("     Magla MIDI     ");
+  lcd.print("  :: Magla MIDI ::  ");
   lcd.setCursor(0,1);
   if (MIDIInChannel!=17)
-  {      //    01234567890123456789
+  { 
     lcd.print("Program        (   )");
     DisplayNumber(1,16,Patch,3);  
   }
@@ -1134,6 +1096,7 @@ void MIDIProgramChange(byte tmpPatch)
 {
   Serial.write(0xC0 + (MIDIOutChannel - 1));
   Serial.write(tmpPatch);
+  Patch = tmpPatch;
 }
 
 
@@ -1168,7 +1131,7 @@ void CheckMIDI()
   {
     StatusByte = Serial.read();
     DataByte1 = Serial.read();
-//    ProcessInput(StatusByte,DataByte1,DataByte2,2);
+    DataByte2 = NULL;
     ProcessInput(StatusByte,DataByte1,DataByte2);
   }
   else
@@ -1176,7 +1139,6 @@ void CheckMIDI()
     StatusByte = Serial.read();  // read first byte
     DataByte1 = Serial.read();   // read next byte
     DataByte2 = Serial.read();   // read final byte
-//    ProcessInput(StatusByte,DataByte1,DataByte2,3);
     ProcessInput(StatusByte,DataByte1,DataByte2);
   }
   TurnLEDOff();
@@ -1185,7 +1147,6 @@ void CheckMIDI()
 
 
 // --- Process Incoming MIDI Messages --------------------------------------------------------------------------------------------
-//void ProcessInput(byte StatusByte, byte DataByte1, byte DataByte2, byte Bytes)
 void ProcessInput(byte StatusByte, byte DataByte1, byte DataByte2)
 {
   byte BottomNibble = StatusByte & 0xF;
@@ -1195,7 +1156,7 @@ void ProcessInput(byte StatusByte, byte DataByte1, byte DataByte2)
     lcd.setCursor(0,1);
     lcd.print("Program        (   )");
     DisplayNumber(1,16,Patch,3);  
-    
+    FootswitchtTimeOutMillis=millis();
     Patch = DataByte1;
     DisplayNumber(1,16,Patch,3);
   }
@@ -1207,31 +1168,6 @@ void ProcessInput(byte StatusByte, byte DataByte1, byte DataByte2)
       else
         digitalWrite(IO9,LOW);
     }
-    else    
-      UnknownRX();
-/*  
-  switch (Bytes)
-  {
-    case 2:
-      if ((StatusByte >= 0xC0) && (StatusByte <= 0xCF))
-      {
-        if ((StatusByte - 0xC0) == (MIDIInChannel - 1))
-        {
-          Patch = DataByte1;
-          // do some display here -- currently for debuging purposes
-          DisplayNumber(1,16,Patch,3);
-        }
-        else
-        {
-          UnknownRX();
-        }
-      }
-      break;
-    case 3:
-      UnknownRX();
-      break;
-  }
-  */
 }
 
 
@@ -1258,24 +1194,6 @@ void ShowVersion()
 
 
 
-// --- Not Recognized (or Not interested in that) MIDI Message -------------------------------------------------------------------
-void UnknownRX()
-{
-  lcd.setCursor(0,3);
-  //         01234567890123456789
-  lcd.print("RX!                 ");
-//  if (MIDIInChannel != 17)
-//    DisplayNumber(1,16,Patch,3);      
-//  else
-//  {
-//    ClearLine(1);
-//  }
-  delay(75);
-  ClearLine(3);
-}
-
-
-
 // --- Clear Specific Line -------------------------------------------------------------------------------------------------------
 void ClearLine(byte line)
 {
@@ -1284,11 +1202,16 @@ void ClearLine(byte line)
 }
 
 
+
+// --- Turn RX LED On ------------------------------------------------------------------------------------------------------------
 void TurnLEDOn()
 {
   digitalWrite(IO9, HIGH);
 }
 
+
+
+// --- Turn RX LED Off -----------------------------------------------------------------------------------------------------------
 void TurnLEDOff()
 {
   digitalWrite(IO9, LOW);
